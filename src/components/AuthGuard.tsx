@@ -1,6 +1,6 @@
 import React from "react";
 import { auth } from "../firebase";
-import { GoogleAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
+import { GoogleAuthProvider, OAuthProvider, signInWithPopup, signInWithRedirect } from "firebase/auth";
 import { toast } from "sonner";
 import { PublicLandingPage } from "../pages/PublicLandingPage";
 import { useAuth } from "../providers/AuthProvider";
@@ -11,6 +11,17 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
 
   const handleLogin = async () => {
     const provider = new GoogleAuthProvider();
+    await signInWithProvider(provider, "Login failed. Please check your browser settings.");
+  };
+
+  const handleAppleLogin = async () => {
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    await signInWithProvider(provider, "Apple sign-in failed. Please check your browser settings.");
+  };
+
+  const signInWithProvider = async (provider: GoogleAuthProvider | OAuthProvider, failureMessage: string) => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
     try {
@@ -29,7 +40,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
         toast.loading("Popup blocked, attempting redirect...", { duration: 2000 });
         await signInWithRedirect(auth, provider);
       } else {
-        toast.error("Login failed. Please check your browser settings.");
+        toast.error(failureMessage);
       }
     }
   };
@@ -50,7 +61,7 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
   }
 
   if (!user) {
-    return <PublicLandingPage onLogin={handleLogin} onGuestLogin={handleGuestLogin} />;
+    return <PublicLandingPage onLogin={handleLogin} onAppleLogin={handleAppleLogin} onGuestLogin={handleGuestLogin} />;
   }
 
   if (!user.isAnonymous && profile && profile.hasAccess === false) {
@@ -66,6 +77,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
            className="px-6 py-3 bg-zinc-900 text-white rounded-xl shadow-lg border border-zinc-800 hover:bg-zinc-800 font-bold tracking-tight text-sm flex items-center gap-3 transition-colors active:scale-95 cursor-pointer"
         >
            Switch Google Account
+        </button>
+        <button
+           onClick={handleAppleLogin}
+           className="px-6 py-3 bg-white text-zinc-950 rounded-xl shadow-lg border border-zinc-200 hover:bg-zinc-100 font-bold tracking-tight text-sm flex items-center gap-3 transition-colors active:scale-95 cursor-pointer"
+        >
+           Switch with Apple
         </button>
       </div>
     );

@@ -15,6 +15,7 @@ import { useAuth } from "../providers/AuthProvider";
 import { openExternalUrl } from "../services/native/nativeApp";
 import {
   GoogleAuthProvider,
+  OAuthProvider,
   signInWithPopup,
   signInWithRedirect,
 } from "firebase/auth";
@@ -83,6 +84,17 @@ export function PaymentsPage() {
 
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
+    await signInForCheckout(provider);
+  };
+
+  const handleAppleLogin = async () => {
+    const provider = new OAuthProvider("apple.com");
+    provider.addScope("email");
+    provider.addScope("name");
+    await signInForCheckout(provider);
+  };
+
+  const signInForCheckout = async (provider: GoogleAuthProvider | OAuthProvider) => {
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     try {
       if (isMobile) {
@@ -192,6 +204,22 @@ export function PaymentsPage() {
             <h2 className="text-lg font-bold text-white mb-0">
               Sign in required before checkout
             </h2>
+            <div className="mt-4 flex flex-wrap gap-3">
+              <button
+                type="button"
+                onClick={handleGoogleLogin}
+                className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-white"
+              >
+                Continue with Google
+              </button>
+              <button
+                type="button"
+                onClick={handleAppleLogin}
+                className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-zinc-100"
+              >
+                Continue with Apple
+              </button>
+            </div>
           </div>
         ) : null}
 

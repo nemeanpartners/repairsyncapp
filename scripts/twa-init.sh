@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT_DIR"
 
-MANIFEST_URL="${TWA_MANIFEST_URL:-https://repairsync-sms-854444042755.us-west1.run.app/manifest.webmanifest}"
+MANIFEST_URL="${TWA_MANIFEST_URL:-https://repairsync.ai.studio/manifest.webmanifest}"
 OUT_DIR="${TWA_DIR:-twa-android}"
 
 if [[ -d "$OUT_DIR" ]] && [[ -n "$(ls -A "$OUT_DIR" 2>/dev/null || true)" ]]; then

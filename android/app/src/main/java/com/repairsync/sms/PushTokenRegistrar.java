@@ -15,7 +15,7 @@ import java.nio.charset.StandardCharsets;
 final class PushTokenRegistrar {
   private static final String TAG = "RepairSyncPush";
   private static final String DEFAULT_PUSH_REGISTER_URL =
-    "https://repairsync-sms-854444042755.us-west1.run.app/api/push/register";
+    "https://repairsync.ai.studio/api/push/register";
   private static final String PREFS_NAME = "repairsync_mobile";
   private static final String KEY_PUSH_REGISTER_URL = "push_register_url";
 

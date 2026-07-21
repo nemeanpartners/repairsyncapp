@@ -2,7 +2,7 @@
 
 (() => {
   const WEB_APP_URL =
-    'https://repairsync-sms-854444042755.us-west1.run.app';
+    'https://repairsync.ai.studio';
   const PUSH_REGISTER_URL = `${WEB_APP_URL}/api/push/register`;
 
   const root = document.getElementById('app');

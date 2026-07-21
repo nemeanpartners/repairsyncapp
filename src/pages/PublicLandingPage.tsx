@@ -50,10 +50,11 @@ import {
 
 interface PublicLandingPageProps {
   onLogin: () => void;
+  onAppleLogin?: () => void;
   onGuestLogin?: () => void;
 }
 
-export function PublicLandingPage({ onLogin, onGuestLogin }: PublicLandingPageProps) {
+export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: PublicLandingPageProps) {
   const [currentHash, setCurrentHash] = useState(() => typeof window !== "undefined" ? window.location.hash : "");
 
   useEffect(() => {
@@ -1631,6 +1632,18 @@ export function PublicLandingPage({ onLogin, onGuestLogin }: PublicLandingPagePr
                 >
                   Continue with Google SSO
                 </button>
+                {onAppleLogin ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onAppleLogin();
+                    }}
+                    className="w-full py-2.5 bg-white hover:bg-zinc-100 border border-white text-zinc-950 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    Continue with Apple
+                  </button>
+                ) : null}
               </div>
             </motion.div>
           </motion.div>

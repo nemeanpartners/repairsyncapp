@@ -1,10 +1,9 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-const hostedServerUrl = 'https://repairsync-sms-854444042755.us-west1.run.app';
-const resolvedServerUrl = process.env.CAP_SERVER_URL || hostedServerUrl;
+const hostedServerUrl = 'https://repairsync.ai.studio';
 const allowNavigationHosts = Array.from(
   new Set(
-    [resolvedServerUrl, hostedServerUrl]
+    [hostedServerUrl]
       .map((value) => {
         try {
           return new URL(value).host;
@@ -15,8 +14,10 @@ const allowNavigationHosts = Array.from(
       .filter((value): value is string => Boolean(value))
       .concat([
         'gen-lang-client-0477801246.firebaseapp.com',
+        'repairsync.ai.studio',
         'accounts.google.com',
         'www.google.com',
+        'appleid.apple.com',
       ]),
   ),
 );
@@ -26,8 +27,8 @@ const config: CapacitorConfig = {
   appName: 'RepairSync',
   webDir: 'capacitor-web',
   server: {
-    url: resolvedServerUrl,
-    cleartext: resolvedServerUrl.startsWith('http://'),
+    url: hostedServerUrl,
+    cleartext: false,
     allowNavigation: allowNavigationHosts
   },
   plugins: {
