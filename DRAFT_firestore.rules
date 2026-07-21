@@ -1,0 +1,220 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+
+    // Phase 3: Primitive Definition
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function getUserRole() { 
+      return get(/databases/$(database)/documents/users/$(request.auth.token.email)).data.role; 
+    }
+    function isAdmin() { 
+      return isSignedIn() && (request.auth.token.email == 'repairs.phonemedic.au@gmail.com' || getUserRole() == 'admin'); 
+    }
+    function isStaff() {
+      return isSignedIn() && (request.auth.token.email == 'repairs.phonemedic.au@gmail.com' || getUserRole() in ['admin', 'tech']);
+    }
+
+    // -------------------------------------------------------------------------
+    // USERS COLLECTION
+    // -------------------------------------------------------------------------
+    function isValidUser(data) {
+      return data.keys().hasAny(['displayName']) &&
+             data.displayName is string && data.displayName.size() <= 100;
+    }
+    match /users/{userId} {
+      // User IDs are emails in this app (doc(db, "users", user.email))
+      allow get: if isSignedIn() && (request.auth.token.email == userId || isStaff());
+      allow list: if isStaff();
+      allow create: if isSignedIn() && request.auth.token.email == userId &&
+                    data.keys().hasAll(['uid', 'displayName']) &&
+                    // They can't set their own role unless they're the bootstrapped admin
+                    (userId == 'repairs.phonemedic.au@gmail.com' || !('role' in incoming()) || incoming().role == '');
+      // Only allow updating non-role fields unless admin
+      allow update: if (
+        isSignedIn() && request.auth.token.email == userId && isValidUser(incoming()) &&
+        (isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'uid']))
+      ) || (
+        isAdmin()
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // QUOTE INQUIRIES (Unauthenticated Creates allowed)
+    // -------------------------------------------------------------------------
+    function isValidQuoteInquiry(data) {
+      return data.name is string && data.name.size() <= 100 &&
+             data.email is string && data.email.size() <= 150 &&
+             data.phone is string && data.phone.size() <= 50 &&
+             data.deviceModel is string && data.deviceModel.size() <= 100 &&
+             data.issueDescription is string && data.issueDescription.size() <= 2000 &&
+             data.status in ['new', 'replied', 'converted', 'rejected'];
+    }
+    match /quote_inquiries/{inquiryId} {
+      allow get, list: if isStaff(); // Only staff can view
+      allow create: if isValidId(inquiryId) && isValidQuoteInquiry(incoming()); // Public form
+      allow update: if isStaff() && isValidQuoteInquiry(incoming()) && (
+        isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // CRM CUSTOMERS
+    // -------------------------------------------------------------------------
+    function isValidCustomer(data) {
+      return data.keys().hasAny(['phone', 'email', 'firstname', 'lastname']) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 150));
+    }
+    match /crm_customers/{customerId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(customerId) && isValidCustomer(incoming());
+      allow update: if isStaff() && isValidCustomer(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // TICKETS (crm_tickets)
+    // -------------------------------------------------------------------------
+    function isValidTicket(data) {
+      return data.keys().hasAny(['customer_id', 'status', 'uid']) &&
+             (!('status' in data) || (data.status is string && data.status.size() <= 50));
+    }
+    match /crm_tickets/{ticketId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(ticketId) && isValidTicket(incoming());
+      allow update: if isStaff() && isValidTicket(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // MESSAGES (crm_messages / messages)
+    // -------------------------------------------------------------------------
+    match /crm_messages/{msgId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /messages/{msgId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+    match /team_messages/{msgId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // CONVERSATIONS
+    // -------------------------------------------------------------------------
+    match /conversations/{convId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // INVOICES & ESTIMATES
+    // -------------------------------------------------------------------------
+    match /crm_invoices/{invoiceId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /invoices/{invoiceId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /crm_estimates/{estId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // TASKS
+    // -------------------------------------------------------------------------
+    match /tasks/{taskId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // SHIFTS & LEAVE REQUESTS
+    // -------------------------------------------------------------------------
+    match /shifts/{shiftId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /leave_requests/{reqId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // PARTS ORDERS
+    // -------------------------------------------------------------------------
+    match /parts_orders/{orderId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /call_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    
+    match /crm_notes/{noteId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    match /crm_line_items/{itemId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /settings/{docId} {
+      // Form config might need to be read unauthenticated for QuoteInquiry mapping
+      allow read: if true;
+      allow write: if isStaff();
+    }
+  }
+}

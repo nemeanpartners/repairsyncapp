@@ -1,0 +1,376 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // 0. Global Safety Net
+    match /{document=**} { 
+      allow read, write: if false; 
+    }
+    
+    match /webhook_idempotency/{key} {
+      allow read, write: if true;
+    }
+
+    // Phase 3: Primitive Definition
+    function incoming() { return request.resource.data; }
+    function existing() { return resource.data; }
+    function isSignedIn() { return request.auth != null; }
+    function isVerified() { return request.auth.token.email_verified == true; }
+    function isValidId(id) { return id is string && id.size() > 0 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function getUserRole() { 
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null; 
+    }
+    // Bootstrapped Admin
+    function isAdmin() { 
+      return isSignedIn() && (
+        isGuest() ||
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'repairs.phonemedic.au@gmail.com') || 
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'server_admin@phonemedic.au') || 
+        getUserRole() == 'admin'
+      ); 
+    }
+    function getAuthToken() { return request.auth.token; }
+    function isGuest() { return request.auth != null && getAuthToken().firebase.sign_in_provider == 'anonymous'; }
+    function isStaff() {
+      return isSignedIn() && (
+        isGuest() ||
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'repairs.phonemedic.au@gmail.com') || 
+        ('email' in request.auth.token && request.auth.token.email.lower() == 'server_admin@phonemedic.au') || 
+        getUserRole() in ['admin', 'tech']
+      );
+    }
+    
+    // Server webhook auth workaround
+    function isServerSigned() {
+      return incoming().uid in ['api-server', 'system_webhook', 'system_migration', 'webhook'];
+    }
+
+    // -------------------------------------------------------------------------
+    // USERS COLLECTION
+    // -------------------------------------------------------------------------
+    function isValidUser(data) {
+      return data.keys().hasAny(['displayName']) &&
+             (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('role' in data) || (data.role is string && data.role.size() <= 20)) &&
+             (!('addedAt' in data) || data.addedAt is timestamp);
+    }
+    match /users/{userId} {
+      allow get: if isSignedIn() && (request.auth.uid == userId || isStaff());
+      allow list: if isStaff();
+      // Admin can create anywhere, user can only create their own.
+      allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
+        isAdmin() || 
+        (request.auth.uid == userId && (!('role' in incoming()) || incoming().role == ''))
+      );
+      // Validated Update
+      allow update: if isSignedIn() && isValidUser(incoming()) && (
+        isAdmin() || 
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'uid']))
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // QUOTE INQUIRIES
+    // -------------------------------------------------------------------------
+    function isValidQuoteInquiry(data) {
+      return data.keys().hasAny(['name', 'email', 'phone', 'deviceModel', 'issueDescription', 'status']) &&
+             data.name is string && data.name.size() <= 100 &&
+             (!('email' in data) || (data.email is string && data.email.size() <= 150)) &&
+             (!('phone' in data) || (data.phone is string && data.phone.size() <= 50)) &&
+             data.deviceModel is string && data.deviceModel.size() <= 100 &&
+             data.issueDescription is string && data.issueDescription.size() <= 3000 &&
+             data.status in ['new', 'replied', 'converted', 'rejected'];
+    }
+    match /quote_inquiries/{inquiryId} {
+      allow get, list: if isStaff();
+      // Public form can create (Unauthenticated possible? Yes, quote form is public)
+      allow create: if isValidId(inquiryId) && isValidQuoteInquiry(incoming());
+      // Staff can update status
+      allow update: if isStaff() && isValidQuoteInquiry(incoming()) && (
+        isAdmin() || incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+      );
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // CRM CUSTOMERS
+    // -------------------------------------------------------------------------
+    function isValidCustomer(data) {
+      return (!('firstname' in data) || data.firstname == null || (data.firstname is string && data.firstname.size() <= 100)) &&
+             (!('lastname' in data) || data.lastname == null || (data.lastname is string && data.lastname.size() <= 100)) &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150)) &&
+             (!('phone' in data) || data.phone == null || (data.phone is string && data.phone.size() <= 50));
+    }
+    match /crm_customers/{customerId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if (isStaff() || isServerSigned()) && isValidId(customerId) && (isAdmin() || isValidCustomer(incoming()));
+      allow update: if (isStaff() || isServerSigned()) && (isAdmin() || isValidCustomer(incoming()));
+      allow delete: if isAdmin();
+    }
+    // -------------------------------------------------------------------------
+    // TICKETS
+    // -------------------------------------------------------------------------
+    function isValidTicket(data) {
+      return (!('customer_id' in data) || data.customer_id == null || (data.customer_id is string && data.customer_id.size() <= 128)) &&
+             (!('subject' in data) || data.subject == null || (data.subject is string && data.subject.size() <= 300)) &&
+             (!('status' in data) || data.status == null || (data.status is string && data.status.size() <= 50)) &&
+             (!('tags' in data) || data.tags == null || (data.tags is list && data.tags.size() <= 20));
+    }
+    match /crm_tickets/{ticketId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if (isStaff() || isServerSigned()) && isValidId(ticketId) && (isAdmin() || isValidTicket(incoming()));
+      allow update: if (isStaff() || isServerSigned()) && (isAdmin() || isValidTicket(incoming()));
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // MESSAGES
+    // -------------------------------------------------------------------------
+    function isValidMessage(data) {
+      return (!('text' in data) || (data.text is string && data.text.size() <= 5000));
+    }
+    match /crm_messages/{msgId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if (isStaff() || isServerSigned()) && isValidId(msgId) && isValidMessage(incoming());
+      allow update: if (isStaff() || isServerSigned()) && isValidMessage(incoming());
+      allow delete: if isAdmin();
+    }
+    match /messages/{msgId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if (isStaff() || isServerSigned()) && isValidId(msgId) && isValidMessage(incoming());
+      allow update: if (isStaff() || isServerSigned()) && isValidMessage(incoming());
+      allow delete: if isStaff();
+    }
+    match /team_messages/{msgId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(msgId) && isValidMessage(incoming());
+      allow update: if isStaff() && isValidMessage(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // CONVERSATIONS
+    // -------------------------------------------------------------------------
+    function isValidConversation(data) {
+      return (!('phone' in data) || (data.phone is string && data.phone.size() <= 50));
+    }
+    match /conversations/{convId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if (isStaff() || isServerSigned()) && isValidId(convId) && isValidConversation(incoming());
+      allow update: if (isStaff() || isServerSigned()) && isValidConversation(incoming());
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // INVOICES & ESTIMATES
+    // -------------------------------------------------------------------------
+    match /crm_invoices/{invoiceId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(invoiceId);
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /invoices/{invoiceId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(invoiceId);
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /tickets/{ticketId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if isStaff() || isServerSigned();
+      allow update: if isStaff() || isServerSigned();
+      allow delete: if isAdmin();
+    }
+    match /system_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if isStaff() || isServerSigned();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /notifications/{notifId} {
+      allow read: if isStaff();
+      allow create: if isStaff() || isServerSigned();
+      allow update: if isStaff() || isServerSigned();
+      allow delete: if isStaff();
+    }
+    match /crm_estimates/{estId} {
+      allow read: if true; // Clients view their estimates
+      allow create: if isStaff() && isValidId(estId);
+      allow update: if true; // Clients approve/decline their estimates
+      allow delete: if isAdmin();
+    }
+    match /estimates/{estId} {
+      allow read: if true; // Clients view their estimates
+      allow create: if isStaff() && isValidId(estId);
+      allow update: if true; // Clients approve/decline their estimates
+      allow delete: if isAdmin();
+    }
+
+    match /daily_checklists/{docId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if isStaff() && isValidId(docId);
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // TASKS
+    // -------------------------------------------------------------------------
+    function isValidTask(data) {
+      return (!('title' in data) || (data.title is string && data.title.size() <= 150));
+    }
+    match /tasks/{taskId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if isStaff() && isValidId(taskId) && isValidTask(incoming());
+      allow update: if isStaff() && isValidTask(incoming());
+      allow delete: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // TASK CATEGORIES
+    // -------------------------------------------------------------------------
+    function isValidTaskCategory(data) {
+      return (!('name' in data) || (data.name is string && data.name.size() <= 100));
+    }
+    match /task_categories/{catId} {
+      allow read: if isStaff() || (isGuest() && resource.data.tenantId == 'demo');
+      allow create: if isStaff() && isValidId(catId) && isValidTaskCategory(incoming());
+      allow update: if isStaff() && isValidTaskCategory(incoming());
+      allow delete: if isStaff();
+    }
+
+    // -------------------------------------------------------------------------
+    // SHIFTS & LEAVE REQUESTS
+    // -------------------------------------------------------------------------
+    match /shifts/{shiftId} {
+      allow read: if isStaff();
+      allow create: if isAdmin();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+    match /leave_requests/{reqId} {
+      allow read: if isStaff();
+      allow create: if isStaff();
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // PARTS ORDERS
+    // -------------------------------------------------------------------------
+    match /parts_orders/{orderId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(orderId);
+      allow update: if isStaff();
+      allow delete: if isAdmin();
+    }
+
+    match /call_logs/{logId} {
+      allow read: if isStaff();
+      allow create: if (isStaff() || isServerSigned()) && isValidId(logId);
+      allow update: if (isStaff() || isServerSigned());
+      allow delete: if isAdmin();
+    }
+    
+    match /crm_integrations/{intId} {
+      allow read: if isStaff();
+      allow create: if (isStaff() || isServerSigned()) && isValidId(intId);
+      allow update: if (isStaff() || isServerSigned());
+      allow delete: if isAdmin();
+    }
+    
+    match /xero_sync_queue/{queueId} {
+      allow read: if isStaff();
+      allow create: if (isStaff() || isServerSigned()) && isValidId(queueId);
+      allow update: if (isStaff() || isServerSigned());
+      allow delete: if isAdmin();
+    }
+    
+    match /crm_notes/{noteId} {
+      allow read: if isStaff();
+      allow create: if isStaff() && isValidId(noteId);
+      allow update: if isStaff();
+      allow delete: if isStaff();
+    }
+
+    match /crm_line_items/{itemId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && isValidId(itemId);
+    }
+
+    match /end_of_day_records/{recordId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && isValidId(recordId);
+    }
+
+    match /payments/{paymentId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && isValidId(paymentId);
+    }
+
+    match /hire_contracts/{contractId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && isValidId(contractId);
+    }
+
+    match /audit_logs/{logId} {
+      allow read: if isStaff();
+      allow write: if isStaff() && isValidId(logId);
+    }
+
+    match /accountDeletionRequests/{reqId} {
+      // Users can see their own requests
+      allow read: if isSignedIn() && (isStaff() || resource.data.userId == request.auth.uid);
+      allow create: if isSignedIn() && !isGuest() && incoming().userId == request.auth.uid;
+      // Users can cancel (update to 'cancelled') their own pending requests, otherwise staff only
+      allow update: if isStaff() || (isSignedIn() && !isGuest() && resource.data.userId == request.auth.uid && incoming().status == 'cancelled' && resource.data.status == 'pending');
+    }
+    match /chat_templates/{templateId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+    match /sms_templates/{templateId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+    match /product_catalog/{productId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+    match /suppliers/{supplierId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+    match /crm_attachments/{attachmentId} {
+      allow read: if isStaff();
+      allow write: if isStaff();
+    }
+
+    match /auditLogs/{logId} {
+      allow read: if isStaff();
+      allow create: if (isSignedIn() && !isGuest()) || isServerSigned();
+    }
+
+    match /settings/{docId} {
+       // quote_form doc is public for the quote wizard
+      allow read: if docId == 'quote_form' || isStaff();
+      allow write: if isStaff();
+    }
+
+    match /organizations/{orgId} {
+      allow read: if isStaff();
+      
+      match /settings/{section} {
+        allow read: if isStaff();
+        allow write: if isStaff();
+      }
+      
+      match /audit_logs/{logId} {
+        allow read: if isStaff();
+        allow write: if isStaff();
+      }
+    }
+  }
+}

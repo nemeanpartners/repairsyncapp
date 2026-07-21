@@ -1,0 +1,16 @@
+177:import { TeamChatModal } from "./components/TeamChatModal";
+1391:  const [isTeamChatOpen, setIsTeamChatOpen] = useState(false);
+1393:  const [lastTeamChatViewed, setLastTeamChatViewed] = useState<number>(() => {
+1394:    return Number(localStorage.getItem("lastTeamChatViewed") || 0);
+2134:        if (isTeamChatOpen) {
+2137:          setLastTeamChatViewed(now);
+2138:          localStorage.setItem("lastTeamChatViewed", String(now));
+2148:          return ts > lastTeamChatViewed && data.senderUid !== user.uid;
+2160:              if (ts > lastTeamChatViewed && data.senderUid !== user.uid) {
+2180:                    onClick: () => setIsTeamChatOpen(true),
+2196:  }, [user, lastTeamChatViewed, isTeamChatOpen, browserNotificationsEnabled]);
+4334:                className={`w-full mt-2 h-16 rounded-[20px] flex flex-col items-center justify-center gap-1 transition-all ${isTeamChatOpen ? "bg-white/40 shadow-sm text-primary border border-white/40" : "text-muted-foreground hover:text-foreground hover:bg-black/5"}`}
+4335:                onClick={() => setIsTeamChatOpen(true)}
+8408:          <TeamChatModal
+8409:            isOpen={isTeamChatOpen}
+8410:            onClose={() => setIsTeamChatOpen(false)}

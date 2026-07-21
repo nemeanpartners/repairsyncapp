@@ -1,0 +1,218 @@
+{
+  "entities": {
+    "Message": {
+      "title": "Message",
+      "description": "An SMS message sent or received.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "to": { "type": "string" },
+        "from": { "type": "string" },
+        "text": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "status": { "type": "string", "enum": ["sent", "delivered", "failed", "received"] },
+        "customerId": { "type": "string" },
+        "ticketId": { "type": "string" },
+        "type": { "type": "string", "enum": ["inbound", "outbound"] },
+        "userId": { "type": "string" },
+        "attachmentUrl": { "type": "string" },
+        "attachmentType": { "type": "string" }
+      },
+      "required": ["to", "text", "timestamp", "status", "type"]
+    },
+    "Contact": {
+      "title": "Contact",
+      "description": "A customer contact synced from RepairShopr.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "firstName": { "type": "string" },
+        "lastName": { "type": "string" },
+        "phone": { "type": "string" },
+        "email": { "type": "string" },
+        "company": { "type": "string" },
+        "repairShoprId": { "type": "string" }
+      },
+      "required": ["firstName", "phone", "repairShoprId"]
+    },
+    "Conversation": {
+      "title": "Conversation",
+      "description": "Metadata for a conversation thread with a customer.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customerId": { "type": "string" },
+        "phone": { "type": "string" },
+        "isArchived": { "type": "boolean" },
+        "lastMessageAt": { "type": "string", "format": "date-time" },
+        "uid": { "type": "string" }
+      },
+      "required": ["isArchived", "lastMessageAt", "uid"]
+    },
+    "PartsOrder": {
+      "title": "Parts Order",
+      "description": "A part order associated with a ticket.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "partName": { "type": "string" },
+        "description": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "ordered", "received", "cancelled"] },
+        "supplier": { "type": "string" },
+        "trackingNumber": { "type": "string" },
+        "ticketId": { "type": "string" },
+        "ticketNumber": { "type": "string" },
+        "customerId": { "type": "string" },
+        "customerName": { "type": "string" },
+        "uid": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["partName", "status", "uid", "createdAt"]
+    },
+    "QuoteInquiry": {
+      "title": "Quote Inquiry",
+      "description": "An inquiry for a repair quote submitted by a customer via the webform.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "deviceModel": { "type": "string" },
+        "issueDescription": { "type": "string" },
+        "status": { "type": "string", "enum": ["new", "replied", "converted", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "source": { "type": "string" }
+      },
+      "required": ["name", "email", "phone", "deviceModel", "issueDescription", "status", "createdAt"]
+    },
+    "FormConfig": {
+      "title": "Form Configuration",
+      "description": "Customization settings for the public quote form.",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "description": { "type": "string" },
+        "step1": { "type": "string" },
+        "step2": { "type": "string" },
+        "step3": { "type": "string" },
+        "accentColor": { "type": "string" }
+      },
+      "required": ["title", "description"]
+    },
+    "Shift": {
+      "title": "Shift",
+      "description": "A scheduled work shift for a staff member.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "startTime": { "type": "string", "format": "date-time" },
+        "endTime": { "type": "string", "format": "date-time" },
+        "role": { "type": "string" },
+        "status": { "type": "string", "enum": ["draft", "published", "assigned", "on_swap"] },
+        "isSwapRequested": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "notes": { "type": "string" }
+      },
+      "required": ["startTime", "endTime", "status", "createdAt"]
+    },
+    "LeaveRequest": {
+      "title": "Leave Request",
+      "description": "A request for time off submitted by a staff member.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "userId": { "type": "string" },
+        "userName": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "type": { "type": "string", "enum": ["vacation", "sick", "personal", "other"] },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "reason": { "type": "string" },
+        "adminNote": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "startDate", "endDate", "type", "status", "createdAt"]
+    },
+    "Ticket": {
+      "title": "Ticket",
+      "description": "A repair ticket.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "customer_id": { "type": "string" },
+        "subject": { "type": "string" },
+        "status": { "type": "string" },
+        "priority": { "type": "string" },
+        "repair_category": { "type": "string" },
+        "brand": { "type": "string" },
+        "device_model": { "type": "string" },
+        "device_password": { "type": "string" },
+        "problem_type": { "type": "string" },
+        "tags": { 
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "created_at": { "type": "string", "format": "date-time" },
+        "updated_at": { "type": "string", "format": "date-time" },
+        "uid": { "type": "string" }
+      },
+      "required": ["customer_id", "subject", "status", "uid"]
+    },
+    "TaskCategory": {
+      "title": "Task Category",
+      "description": "A custom category to group tasks.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/crm_messages": {
+      "schema": "Message",
+      "description": "Collection of all SMS messages."
+    },
+    "/contacts": {
+      "schema": "Contact",
+      "description": "Collection of synced customer contacts."
+    },
+    "/conversations": {
+      "schema": "Conversation",
+      "description": "Collection of conversation metadata (e.g., archived status)."
+    },
+    "/parts_orders": {
+      "schema": "PartsOrder",
+      "description": "Collection of parts orders."
+    },
+    "/quote_inquiries": {
+      "schema": "QuoteInquiry",
+      "description": "Collection of quote inquiries from the public webform."
+    },
+    "/settings": {
+      "schema": "object",
+      "description": "General application settings."
+    },
+    "/shifts": {
+      "schema": "Shift",
+      "description": "Collection of work shifts."
+    },
+    "/leave_requests": {
+      "schema": "LeaveRequest",
+      "description": "Collection of staff leave requests."
+    },
+    "/crm_tickets": {
+      "schema": "Ticket",
+      "description": "Collection of repair tickets."
+    },
+    "/task_categories": {
+      "schema": "TaskCategory",
+      "description": "Collection of custom task categories."
+    }
+  }
+}

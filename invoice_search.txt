@@ -1,0 +1,65 @@
+310:  const generateInvoicePdf = async () => {
+312:      toast.error("Save the ticket first before generating an invoice.");
+320:      pdfDoc.text("Invoice", 14, 22);
+361:        `invoices/invoice_${ticket.number || activeTicketId}_${Date.now()}.pdf`,
+367:        invoice_url: downloadUrl,
+370:      setTicket((prev: any) => ({ ...prev, invoice_url: downloadUrl }));
+372:      toast.success("Invoice generated successfully");
+515:  // Invoices
+516:  const [invoice, setInvoice] = useState<any>(null);
+517:  const [customerInvoices, setCustomerInvoices] = useState<any[]>([]);
+631:    if (!invoice || !customer.email) {
+632:      toast.error("Invoice or customer email missing");
+641:      // 2. Sync Invoice
+642:      const invRes = await axios.post("/api/xero/sync/invoice", {
+647:      toast.success(`Invoice synced to Xero: ${invRes.data.invoiceNumber}`);
+962:    setInvoice(null);
+963:    setCustomerInvoices([]);
+1328:          // Fetch Invoice (if any)
+1330:            collection(db, "crm_invoices"),
+1335:            setInvoice({ id: invSnap.docs[0].id, ...invSnap.docs[0].data() });
+1363:        // 2. Fetch Customer & Invoices
+1394:        // Fetch all invoices for this customer (for profile tab)
+1395:        const allInvoicesQ = query(
+1396:          collection(db, "crm_invoices"),
+1401:        const allInvoicesSnap = await getDocs(allInvoicesQ);
+1402:        setCustomerInvoices(
+1403:          allInvoicesSnap.docs.map((d) => ({ id: d.id, ...d.data() })),
+1882:  const handleCreateInvoice = async () => {
+1885:        "Need a ticket and at least one line item to build an invoice.",
+1895:      await addDoc(collection(db, "crm_invoices"), {
+1903:      toast.success("Invoice Created & Quote Generated!");
+1907:      toast.error("Failed to create invoice.");
+1912:    if (!invoice) return;
+1914:      await updateDoc(doc(db, "crm_invoices", invoice.id), {
+2468:                        {!invoice ? (
+2470:                            onClick={handleCreateInvoice}
+2474:                            Generate Invoice
+2482:                            View Invoice
+3633:              {/* Left: Estimate & Invoice Builder */}
+3642:                        {ticket.invoice_url && (
+3647:                              window.open(ticket.invoice_url, "_blank")
+3651:                            View Invoice
+3657:                          onClick={generateInvoicePdf}
+3826:                    Invoice Status
+3829:                  {invoice ? (
+3837:                            ${Number(invoice.total).toFixed(2)}
+3842:                            invoice.status === "paid"
+3847:                          {invoice.status.toUpperCase()}
+3851:                      {invoice.status !== "paid" ? (
+3911:                                Method: {invoice.tender_type || "N/A"}
+3930:                          No active invoice for this ticket
+3933:                          onClick={handleCreateInvoice}
+3936:                          Generate Invoice & Quote
+4176:                      Invoices & Payments
+4179:                      {customerInvoices.length} Invoices
+4183:                    {customerInvoices.map((inv) => (
+4191:                              Invoice Amount
+4304:              {invoice?.tender_type && (
+4307:                  <span className="text-zinc-700">{invoice.tender_type}</span>
+4312:                {invoice?.paid_at?.toDate
+4313:                  ? new Date(invoice.paid_at.toDate()).toLocaleDateString()
+4459:                  {invoice?.tender_type && (
+4463:                        {invoice.tender_type}
+4469:                    {invoice?.paid_at?.toDate
+4470:                      ? new Date(invoice.paid_at.toDate()).toLocaleDateString()

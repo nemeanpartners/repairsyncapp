@@ -1,0 +1,189 @@
+diff --git a/node_modules/@capacitor-firebase/messaging/Package.swift b/node_modules/@capacitor-firebase/messaging/Package.swift
+index fd2cba6..a76dff2 100644
+--- a/node_modules/@capacitor-firebase/messaging/Package.swift
++++ b/node_modules/@capacitor-firebase/messaging/Package.swift
+@@ -22,7 +22,10 @@ let package = Package(
+                 .product(name: "FirebaseCore", package: "firebase-ios-sdk"),
+                 .product(name: "FirebaseMessaging", package: "firebase-ios-sdk")
+             ],
+-            path: "ios/Plugin"),
++            path: "ios/Plugin",
++            swiftSettings: [
++                .enableExperimentalFeature("NonescapableTypes")
++            ]),
+         .testTarget(
+             name: "FirebaseMessagingPluginTests",
+             dependencies: ["FirebaseMessagingPlugin"],
+diff --git a/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingHelper.swift b/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingHelper.swift
+index 93cba9e..c9e8346 100644
+--- a/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingHelper.swift
++++ b/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingHelper.swift
+@@ -6,7 +6,7 @@ public class FirebaseMessagingHelper {
+     public static func createNotificationResult(notification: UNNotification) -> JSObject {
+         var result = JSObject()
+         result["body"] = notification.request.content.body
+-        result["data"] = JSTypes.coerceDictionaryToJSObject(notification.request.content.userInfo) ?? [:]
++        result["data"] = coerceDictionaryToJSObject(notification.request.content.userInfo) ?? [:]
+         result["id"] = notification.request.identifier
+         result["subtitle"] = notification.request.content.subtitle
+         result["title"] = notification.request.content.title
+@@ -15,7 +15,57 @@ public class FirebaseMessagingHelper {
+ 
+     public static func createNotificationResult(notification: NSNotification) -> JSObject {
+         var result = JSObject()
+-        result["data"] = JSTypes.coerceDictionaryToJSObject(notification.userInfo) ?? [:]
++        result["data"] = coerceDictionaryToJSObject(notification.userInfo) ?? [:]
+         return result
+     }
++
++    private static func coerceDictionaryToJSObject(_ dictionary: [AnyHashable: Any]?) -> JSObject? {
++        guard let dictionary = dictionary else {
++            return nil
++        }
++
++        var object = JSObject()
++        for (key, value) in dictionary {
++            guard let stringKey = key as? String else {
++                continue
++            }
++            object[stringKey] = coerceValue(value)
++        }
++        return object
++    }
++
++    private static func coerceValue(_ value: Any?) -> JSValue? {
++        guard let value = value else {
++            return nil
++        }
++
++        switch value {
++        case let stringValue as String:
++            return stringValue
++        case let boolValue as Bool:
++            return boolValue
++        case let intValue as Int:
++            return intValue
++        case let floatValue as Float:
++            return floatValue
++        case let doubleValue as Double:
++            return doubleValue
++        case let numberValue as NSNumber:
++            return numberValue
++        case let dateValue as Date:
++            return dateValue
++        case let nullValue as NSNull:
++            return nullValue
++        case let arrayValue as NSArray:
++            return arrayValue.compactMap { coerceValue($0) }
++        case let dictionaryValue as NSDictionary:
++            var result = JSObject()
++            for key in dictionaryValue.allKeys.compactMap({ $0 as? String }) {
++                result[key] = coerceValue(dictionaryValue[key])
++            }
++            return result
++        default:
++            return nil
++        }
++    }
+ }
+diff --git a/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingPlugin.swift b/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingPlugin.swift
+index 0df2008..ed40d01 100644
+--- a/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingPlugin.swift
++++ b/node_modules/@capacitor-firebase/messaging/ios/Plugin/FirebaseMessagingPlugin.swift
+@@ -61,7 +61,7 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+         implementation?.requestPermissions(completion: { granted, error in
+             if let error = error {
+                 CAPLog.print("[", self.tag, "] ", error)
+-                call.reject(error.localizedDescription)
++                call.unavailable(error.localizedDescription)
+                 return
+             }
+             call.resolve(["receive": granted ? "granted" : "denied"])
+@@ -78,7 +78,7 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+         implementation?.getToken(completion: { token, error in
+             if let error = error {
+                 CAPLog.print("[", self.tag, "] ", error)
+-                call.reject(error.localizedDescription)
++                call.unavailable(error.localizedDescription)
+                 return
+             }
+             var result = JSObject()
+@@ -91,7 +91,7 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+         implementation?.deleteToken(completion: { error in
+             if let error = error {
+                 CAPLog.print("[", self.tag, "] ", error)
+-                call.reject(error.localizedDescription)
++                call.unavailable(error.localizedDescription)
+                 return
+             }
+             call.resolve()
+@@ -110,15 +110,16 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+     }
+ 
+     @objc func removeDeliveredNotifications(_ call: CAPPluginCall) {
+-        guard let notifications = call.getArray("notifications", JSObject.self) else {
+-            call.reject(errorNotificationsMissing)
++        let notifications = call.getArray("notifications", [])
++        guard !notifications.isEmpty else {
++            call.unavailable(errorNotificationsMissing)
+             return
+         }
+ 
+         var ids = [String]()
+         for notification in notifications {
+-            guard let id = notification["id"] as? String else {
+-                call.reject(errorNotificationsInvalid)
++            guard let notification = notification as? JSObject, let id = notification["id"] as? String else {
++                call.unavailable(errorNotificationsInvalid)
+                 return
+             }
+             ids.append(id)
+@@ -134,15 +135,16 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+     }
+ 
+     @objc func subscribeToTopic(_ call: CAPPluginCall) {
+-        guard let topic = call.getString("topic") else {
+-            call.reject(errorTopicMissing)
++        let topic = call.getString("topic", "")
++        guard !topic.isEmpty else {
++            call.unavailable(errorTopicMissing)
+             return
+         }
+ 
+         implementation?.subscribeToTopic(topic: topic, completion: { error in
+             if let error = error {
+                 CAPLog.print("[", self.tag, "] ", error)
+-                call.reject(error.localizedDescription)
++                call.unavailable(error.localizedDescription)
+                 return
+             }
+             call.resolve()
+@@ -150,15 +152,16 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+     }
+ 
+     @objc func unsubscribeFromTopic(_ call: CAPPluginCall) {
+-        guard let topic = call.getString("topic") else {
+-            call.reject(errorTopicMissing)
++        let topic = call.getString("topic", "")
++        guard !topic.isEmpty else {
++            call.unavailable(errorTopicMissing)
+             return
+         }
+ 
+         implementation?.unsubscribeFromTopic(topic: topic, completion: { error in
+             if let error = error {
+                 CAPLog.print("[", self.tag, "] ", error)
+-                call.reject(error.localizedDescription)
++                call.unavailable(error.localizedDescription)
+                 return
+             }
+             call.resolve()
+@@ -235,7 +238,7 @@ public class FirebaseMessagingPlugin: CAPPlugin, CAPBridgedPlugin {
+     private func firebaseMessagingConfig() -> FirebaseMessagingConfig {
+         var config = FirebaseMessagingConfig()
+ 
+-        if let presentationOptions = getConfig().getArray("presentationOptions") as? [String] {
++        if let presentationOptions = getConfig().getConfigJSON()["presentationOptions"] as? [String] {
+             config.presentationOptions = presentationOptions
+         }
+ 

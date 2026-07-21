@@ -1,0 +1,16 @@
+diff --git a/node_modules/@capacitor-firebase/app/Package.swift b/node_modules/@capacitor-firebase/app/Package.swift
+index 2ab0c16..cd45b57 100644
+--- a/node_modules/@capacitor-firebase/app/Package.swift
++++ b/node_modules/@capacitor-firebase/app/Package.swift
+@@ -21,7 +21,10 @@ let package = Package(
+                 .product(name: "Cordova", package: "capacitor-swift-pm"),
+                 .product(name: "FirebaseCore", package: "firebase-ios-sdk")
+             ],
+-            path: "ios/Plugin"),
++            path: "ios/Plugin",
++            swiftSettings: [
++                .enableExperimentalFeature("NonescapableTypes")
++            ]),
+         .testTarget(
+             name: "FirebaseAppPluginTests",
+             dependencies: ["FirebaseAppPlugin"],

@@ -1,0 +1,8 @@
+{
+  "name": "RepairSync Distributed App",
+  "description": "A full-stack dashboard for RepairShopr and Mobile Message integration, featuring automated SMS job updates and real-time messaging.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
