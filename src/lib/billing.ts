@@ -20,7 +20,7 @@ export interface UserBillingProfile {
   subscriptionStatus: AppSubscriptionStatus;
   subscriptionPlan: SubscriptionPlan | null;
   subscriptionInterval: SubscriptionInterval | null;
-  subscriptionSource: "stripe" | "grandfathered" | "manual" | null;
+  subscriptionSource: "stripe" | "apple_iap" | "grandfathered" | "manual" | null;
   subscriptionGrandfathered: boolean;
   stripeCustomerId: string | null;
   stripeSubscriptionId: string | null;

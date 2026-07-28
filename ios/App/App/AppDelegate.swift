@@ -5,9 +5,10 @@ import FirebaseAuth
 import GoogleSignIn
 import UserNotifications
 import WebKit
+import StoreKit
 
 @UIApplicationMain
-class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, UNUserNotificationCenterDelegate {
+class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, UNUserNotificationCenterDelegate, SKProductsRequestDelegate, SKPaymentTransactionObserver {
 
     var window: UIWindow?
     private weak var webView: WKWebView?
@@ -16,10 +17,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
     private var googleSignInInProgress = false
     private let googleSignInMessageHandler = "RepairSyncIOSGoogleSignIn"
     private let externalBrowserMessageHandler = "RepairSyncExternalBrowser"
+    private let iapMessageHandler = "RepairSyncIOSIAP"
     private let iosWrapperClassName = "repairsync-ios-wrapper"
     private let appDeepLinkScheme = "repairsync"
     private let hostedAppBaseURL = "https://repairsync.ai.studio"
     private var pendingAppNavigationURL: URL?
+    private let appleIAPProductIDs: Set<String> = [
+        "com.repairsyncios.sms.starter.monthly",
+        "com.repairsyncios.sms.starter.yearly",
+        "com.repairsyncios.sms.pro.monthly",
+        "com.repairsyncios.sms.pro.yearly"
+    ]
+    private var productRequests: [SKProductsRequest] = []
+    private var availableIAPProducts: [String: SKProduct] = [:]
+    private var pendingIAPPurchaseProductId: String?
     private let hostedLoginLogoDataURI = "data:image/jpeg;base64,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"
 
     func application(_ application: UIApplication, didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?) -> Bool {
@@ -28,6 +39,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
             FirebaseApp.configure()
         }
         UNUserNotificationCenter.current().delegate = self
+        SKPaymentQueue.default().add(self)
         configureGoogleSignIn()
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             self.installGoogleSignInBridge(retryCount: 8)
@@ -68,6 +80,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
 
     func applicationWillTerminate(_ application: UIApplication) {
         // Called when the application is about to terminate. Save data if appropriate. See also applicationDidEnterBackground:.
+        SKPaymentQueue.default().remove(self)
     }
 
     func application(_ app: UIApplication, open url: URL, options: [UIApplication.OpenURLOptionsKey: Any] = [:]) -> Bool {
@@ -129,6 +142,20 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                     NSLog("RepairSync iOS: external browser open %@ for %@", success ? "succeeded" : "failed", urlString)
                 }
             }
+            return
+        }
+
+        if message.name == iapMessageHandler,
+           let body = message.body as? [String: Any],
+           let action = body["action"] as? String {
+            switch action {
+            case "purchase":
+                startIAPPurchase(productId: body["productId"] as? String)
+            case "restore":
+                restoreIAPPurchases()
+            default:
+                notifyWebIAPFailed(productId: body["productId"] as? String, message: "Unknown Apple purchase action.")
+            }
         }
     }
 
@@ -171,14 +198,23 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 forMainFrameOnly: false
             )
         )
+        userContentController.addUserScript(
+            WKUserScript(
+                source: nativeIAPShim(),
+                injectionTime: .atDocumentEnd,
+                forMainFrameOnly: false
+            )
+        )
         userContentController.add(self, name: googleSignInMessageHandler)
         userContentController.add(self, name: externalBrowserMessageHandler)
+        userContentController.add(self, name: iapMessageHandler)
         webView.scrollView.contentInsetAdjustmentBehavior = .never
         webView.scrollView.scrollIndicatorInsets = .zero
         webView.scrollView.verticalScrollIndicatorInsets = .zero
         webView.evaluateJavaScript(externalBrowserShim(), completionHandler: nil)
         webView.evaluateJavaScript(nativeIOSLayoutShim(), completionHandler: nil)
         webView.evaluateJavaScript(nativeGoogleSignInShim(), completionHandler: nil)
+        webView.evaluateJavaScript(nativeIAPShim(), completionHandler: nil)
         didInstallGoogleSignInBridge = true
         applyPendingNavigationIfNeeded()
         NSLog("RepairSync Google Sign-In: native bridge installed")
@@ -398,6 +434,202 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
             }
             window.webkit.messageHandlers.\(externalBrowserMessageHandler).postMessage({ url: url });
             return true;
+          };
+        })();
+        """
+    }
+
+    private func startIAPPurchase(productId: String?) {
+        guard let productId, appleIAPProductIDs.contains(productId) else {
+            notifyWebIAPFailed(productId: productId, message: "Unknown Apple subscription product.")
+            return
+        }
+
+        guard SKPaymentQueue.canMakePayments() else {
+            notifyWebIAPFailed(productId: productId, message: "Apple in-app purchases are disabled on this device.")
+            return
+        }
+
+        DispatchQueue.main.async {
+            if let product = self.availableIAPProducts[productId] {
+                SKPaymentQueue.default().add(SKPayment(product: product))
+                return
+            }
+
+            self.pendingIAPPurchaseProductId = productId
+            self.requestProduct(productId: productId)
+        }
+    }
+
+    private func restoreIAPPurchases() {
+        guard SKPaymentQueue.canMakePayments() else {
+            notifyWebIAPFailed(productId: nil, message: "Apple in-app purchases are disabled on this device.")
+            return
+        }
+
+        DispatchQueue.main.async {
+            SKPaymentQueue.default().restoreCompletedTransactions()
+        }
+    }
+
+    private func requestProduct(productId: String) {
+        let request = SKProductsRequest(productIdentifiers: [productId])
+        request.delegate = self
+        productRequests.append(request)
+        request.start()
+    }
+
+    func productsRequest(_ request: SKProductsRequest, didReceive response: SKProductsResponse) {
+        for product in response.products {
+            availableIAPProducts[product.productIdentifier] = product
+        }
+
+        let requestedProductId = pendingIAPPurchaseProductId
+        pendingIAPPurchaseProductId = nil
+        productRequests.removeAll { $0 === request }
+
+        guard let productId = requestedProductId,
+              let product = availableIAPProducts[productId] else {
+            notifyWebIAPFailed(productId: requestedProductId, message: "Apple subscription product is not available yet.")
+            return
+        }
+
+        DispatchQueue.main.async {
+            SKPaymentQueue.default().add(SKPayment(product: product))
+        }
+    }
+
+    func request(_ request: SKRequest, didFailWithError error: Error) {
+        if let productRequest = request as? SKProductsRequest {
+            productRequests.removeAll { $0 === productRequest }
+        }
+        let productId = pendingIAPPurchaseProductId
+        pendingIAPPurchaseProductId = nil
+        notifyWebIAPFailed(productId: productId, message: error.localizedDescription)
+    }
+
+    func paymentQueue(_ queue: SKPaymentQueue, updatedTransactions transactions: [SKPaymentTransaction]) {
+        for transaction in transactions {
+            switch transaction.transactionState {
+            case .purchased:
+                finishSuccessfulIAPTransaction(transaction, restored: false)
+                queue.finishTransaction(transaction)
+            case .restored:
+                finishSuccessfulIAPTransaction(transaction, restored: true)
+                queue.finishTransaction(transaction)
+            case .failed:
+                let message = transaction.error?.localizedDescription ?? "Apple purchase failed."
+                notifyWebIAPFailed(productId: transaction.payment.productIdentifier, message: message)
+                queue.finishTransaction(transaction)
+            case .deferred:
+                notifyWebIAPFailed(productId: transaction.payment.productIdentifier, message: "Apple purchase is pending approval.")
+            case .purchasing:
+                break
+            @unknown default:
+                notifyWebIAPFailed(productId: transaction.payment.productIdentifier, message: "Apple purchase entered an unknown state.")
+            }
+        }
+    }
+
+    func paymentQueueRestoreCompletedTransactionsFinished(_ queue: SKPaymentQueue) {
+        if queue.transactions.isEmpty {
+            notifyWebIAPFailed(productId: nil, message: "No Apple purchases were available to restore.")
+        }
+    }
+
+    func paymentQueue(_ queue: SKPaymentQueue, restoreCompletedTransactionsFailedWithError error: Error) {
+        notifyWebIAPFailed(productId: nil, message: error.localizedDescription)
+    }
+
+    private func finishSuccessfulIAPTransaction(_ transaction: SKPaymentTransaction, restored: Bool) {
+        guard let receiptData = receiptDataBase64() else {
+            notifyWebIAPFailed(productId: transaction.payment.productIdentifier, message: "Apple receipt was not available.")
+            return
+        }
+
+        let originalTransaction = transaction.original ?? transaction
+        dispatchIAPSuccess(
+            productId: transaction.payment.productIdentifier,
+            transactionId: transaction.transactionIdentifier ?? "",
+            originalTransactionId: originalTransaction.transactionIdentifier,
+            receiptData: receiptData,
+            restored: restored
+        )
+    }
+
+    private func receiptDataBase64() -> String? {
+        guard let receiptURL = Bundle.main.appStoreReceiptURL,
+              let data = try? Data(contentsOf: receiptURL) else {
+            return nil
+        }
+        return data.base64EncodedString()
+    }
+
+    private func dispatchIAPSuccess(
+        productId: String,
+        transactionId: String,
+        originalTransactionId: String?,
+        receiptData: String,
+        restored: Bool
+    ) {
+        let script = """
+        window.dispatchEvent(new CustomEvent('RepairSyncIAPPurchaseCompleted', {
+          detail: {
+            productId: \(javascriptString(productId)),
+            transactionId: \(javascriptString(transactionId)),
+            originalTransactionId: \(originalTransactionId.map { javascriptString($0) } ?? "null"),
+            receiptData: \(javascriptString(receiptData)),
+            restored: \(restored ? "true" : "false")
+          }
+        }));
+        """
+        DispatchQueue.main.async {
+            self.webView?.evaluateJavaScript(script, completionHandler: nil)
+        }
+    }
+
+    private func notifyWebIAPFailed(productId: String?, message: String) {
+        let script = """
+        window.dispatchEvent(new CustomEvent('RepairSyncIAPPurchaseFailed', {
+          detail: {
+            productId: \(productId.map { javascriptString($0) } ?? "null"),
+            message: \(javascriptString(message))
+          }
+        }));
+        console.error('RepairSync Apple IAP failed:', \(javascriptString(message)));
+        """
+        DispatchQueue.main.async {
+            self.webView?.evaluateJavaScript(script, completionHandler: nil)
+        }
+    }
+
+    private func nativeIAPShim() -> String {
+        """
+        (function() {
+          if (window.__repairSyncIOSIAPShimInstalled) {
+            return;
+          }
+          window.__repairSyncIOSIAPShimInstalled = true;
+
+          function postMessage(payload) {
+            if (!window.webkit || !window.webkit.messageHandlers || !window.webkit.messageHandlers.\(iapMessageHandler)) {
+              return false;
+            }
+            window.webkit.messageHandlers.\(iapMessageHandler).postMessage(payload);
+            return true;
+          }
+
+          window.RepairSyncIAP = {
+            isAvailable: true,
+            purchase: function(productId) {
+              if (!productId) {
+                return false;
+              }
+              return postMessage({ action: "purchase", productId: productId });
+            },
+            restore: function() {
+              return postMessage({ action: "restore" });
+            }
           };
         })();
         """

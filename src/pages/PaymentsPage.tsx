@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
   CheckCircle2,
@@ -7,7 +7,7 @@ import {
   Loader2,
   ShieldCheck,
 } from "lucide-react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { apiUrl } from "../lib/apiRuntime";
 import { SubscriptionInterval, SubscriptionPlan } from "../lib/billing";
@@ -20,6 +20,46 @@ import {
   signInWithRedirect,
 } from "firebase/auth";
 import { auth } from "../firebase";
+
+type NativeIAPPurchaseResult = {
+  productId: string;
+  transactionId: string;
+  originalTransactionId?: string | null;
+  receiptData: string;
+  restored?: boolean;
+};
+
+declare global {
+  interface Window {
+    RepairSyncIAP?: {
+      isAvailable?: boolean;
+      purchase: (productId: string) => boolean;
+      restore: () => boolean;
+    };
+  }
+}
+
+const APPLE_IAP_PRODUCT_IDS: Record<
+  Exclude<SubscriptionPlan, "enterprise">,
+  Record<SubscriptionInterval, string>
+> = {
+  starter: {
+    monthly:
+      import.meta.env.VITE_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID ||
+      "com.repairsyncios.sms.starter.monthly",
+    yearly:
+      import.meta.env.VITE_APPLE_IAP_STARTER_YEARLY_PRODUCT_ID ||
+      "com.repairsyncios.sms.starter.yearly",
+  },
+  pro: {
+    monthly:
+      import.meta.env.VITE_APPLE_IAP_PRO_MONTHLY_PRODUCT_ID ||
+      "com.repairsyncios.sms.pro.monthly",
+    yearly:
+      import.meta.env.VITE_APPLE_IAP_PRO_YEARLY_PRODUCT_ID ||
+      "com.repairsyncios.sms.pro.yearly",
+  },
+};
 
 const PLAN_COPY: Record<
   SubscriptionPlan,
@@ -69,18 +109,81 @@ const PLAN_COPY: Record<
 
 export function PaymentsPage() {
   const { user, profile } = useAuth();
-  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [interval, setInterval] = useState<SubscriptionInterval>(
     searchParams.get("interval") === "monthly" ? "monthly" : "yearly",
   );
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlan | null>(null);
+  const [canUseAppleIAP, setCanUseAppleIAP] = useState(false);
 
   const selectedPlan = useMemo<SubscriptionPlan>(() => {
     const requested = searchParams.get("plan");
     if (requested === "starter" || requested === "enterprise") return requested;
     return "pro";
   }, [searchParams]);
+
+  useEffect(() => {
+    const detectAppleIAP = () => {
+      setCanUseAppleIAP(Boolean(window.RepairSyncIAP?.isAvailable));
+    };
+
+    detectAppleIAP();
+    const timer = window.setInterval(detectAppleIAP, 500);
+    window.setTimeout(detectAppleIAP, 1500);
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (!canUseAppleIAP || !user || user.isAnonymous) return;
+
+    const handleRestoredPurchase = (event: CustomEvent<NativeIAPPurchaseResult>) => {
+      if (!event.detail.restored) return;
+      void completeApplePurchase(event.detail, user.uid, user.email || null, true).catch(
+        (error: any) => {
+          toast.error(
+            error?.response?.data?.error ||
+              error?.message ||
+              "Unable to restore Apple subscription.",
+          );
+        },
+      );
+    };
+
+    window.addEventListener(
+      "RepairSyncIAPPurchaseCompleted",
+      handleRestoredPurchase as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "RepairSyncIAPPurchaseCompleted",
+        handleRestoredPurchase as EventListener,
+      );
+    };
+  }, [canUseAppleIAP, user]);
+
+  const completeApplePurchase = async (
+    purchase: NativeIAPPurchaseResult,
+    uid: string,
+    email: string | null,
+    restored = false,
+  ) => {
+    const response = await axios.post(apiUrl("/api/billing/apple/complete"), {
+      uid,
+      email,
+      productId: purchase.productId,
+      transactionId: purchase.transactionId,
+      originalTransactionId: purchase.originalTransactionId || null,
+      receiptData: purchase.receiptData,
+      restored,
+    });
+
+    if (!response.data?.subscriptionActive) {
+      throw new Error("Apple purchase was not activated.");
+    }
+
+    toast.success(restored ? "Apple subscription restored." : "Apple subscription activated.");
+    window.setTimeout(() => window.location.reload(), 800);
+  };
 
   const handleGoogleLogin = async () => {
     const provider = new GoogleAuthProvider();
@@ -110,16 +213,8 @@ export function PaymentsPage() {
   const startCheckout = async (plan: SubscriptionPlan) => {
     let currentUser = user;
     if (!currentUser || currentUser.isAnonymous) {
-      const provider = new GoogleAuthProvider();
-      try {
-        setLoadingPlan(plan);
-        const credentials = await signInWithPopup(auth, provider);
-        currentUser = credentials.user;
-      } catch (error: any) {
-        toast.error(error?.message || "Unable to sign in before checkout.");
-        setLoadingPlan(null);
-        return;
-      }
+      toast.error("Sign in before starting your subscription.");
+      return;
     }
 
     if (plan === "enterprise") {
@@ -132,6 +227,18 @@ export function PaymentsPage() {
 
     setLoadingPlan(plan);
     try {
+      if (canUseAppleIAP) {
+        const productId = APPLE_IAP_PRODUCT_IDS[plan][interval];
+        const purchase = await purchaseWithApple(productId);
+        await completeApplePurchase(
+          purchase,
+          currentUser.uid,
+          currentUser.email || null,
+          purchase.restored || false,
+        );
+        return;
+      }
+
       const response = await axios.post(
         apiUrl("/api/billing/checkout-session"),
         {
@@ -160,6 +267,72 @@ export function PaymentsPage() {
     }
   };
 
+  const purchaseWithApple = (productId: string) =>
+    new Promise<NativeIAPPurchaseResult>((resolve, reject) => {
+      const iap = window.RepairSyncIAP;
+      if (!iap?.purchase) {
+        reject(new Error("Apple in-app purchases are not available in this app build."));
+        return;
+      }
+
+      let completed = false;
+      const cleanup = () => {
+        window.removeEventListener("RepairSyncIAPPurchaseCompleted", handleCompleted as EventListener);
+        window.removeEventListener("RepairSyncIAPPurchaseFailed", handleFailed as EventListener);
+        window.clearTimeout(timeout);
+      };
+
+      const handleCompleted = (event: CustomEvent<NativeIAPPurchaseResult>) => {
+        if (event.detail.productId !== productId || completed) return;
+        completed = true;
+        cleanup();
+        resolve(event.detail);
+      };
+
+      const handleFailed = (event: CustomEvent<{ productId?: string; message?: string }>) => {
+        if (event.detail.productId && event.detail.productId !== productId) return;
+        if (completed) return;
+        completed = true;
+        cleanup();
+        reject(new Error(event.detail.message || "Apple purchase failed."));
+      };
+
+      const timeout = window.setTimeout(() => {
+        if (completed) return;
+        completed = true;
+        cleanup();
+        reject(new Error("Apple purchase timed out."));
+      }, 180000);
+
+      window.addEventListener("RepairSyncIAPPurchaseCompleted", handleCompleted as EventListener);
+      window.addEventListener("RepairSyncIAPPurchaseFailed", handleFailed as EventListener);
+
+      const started = iap.purchase(productId);
+      if (!started) {
+        completed = true;
+        cleanup();
+        reject(new Error("Apple purchase could not be started."));
+      }
+    });
+
+  const restoreApplePurchase = () => {
+    const iap = window.RepairSyncIAP;
+    if (!iap?.restore) {
+      toast.error("Apple restore is not available in this app build.");
+      return;
+    }
+    if (!user || user.isAnonymous) {
+      toast.error("Sign in before restoring an Apple purchase.");
+      return;
+    }
+    const started = iap.restore();
+    if (started) {
+      toast.info("Checking for Apple purchases to restore.");
+    } else {
+      toast.error("Unable to start Apple purchase restore.");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))] md:px-10">
       <div className="mx-auto max-w-6xl">
@@ -172,10 +345,20 @@ export function PaymentsPage() {
               Activate your workspace subscription
             </h1>
             <p className="text-sm text-zinc-400 mt-3 max-w-2xl">
-              Stripe checkout opens outside the wrapper in Safari or your
-              default browser, then returns you to RepairSync after activation.
+              On iPhone, subscriptions use Apple in-app purchase. Other
+              platforms use Stripe checkout and return you to RepairSync after
+              activation.
             </p>
           </div>
+          {canUseAppleIAP ? (
+            <button
+              type="button"
+              onClick={restoreApplePurchase}
+              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:bg-zinc-900"
+            >
+              Restore Apple Purchase
+            </button>
+          ) : null}
         </div>
 
         <div className="mb-8 flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 w-fit">
@@ -302,7 +485,9 @@ export function PaymentsPage() {
                     )}
                     {plan === "enterprise"
                       ? "Contact Sales"
-                      : "Get Subscription Now"}
+                      : canUseAppleIAP
+                        ? "Subscribe with Apple"
+                        : "Get Subscription Now"}
                   </button>
                 </div>
               );

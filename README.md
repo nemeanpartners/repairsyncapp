@@ -29,3 +29,29 @@ Build check used locally:
 ```sh
 xcodebuild -project ios/App/App.xcodeproj -scheme App -destination 'generic/platform=iOS' CODE_SIGNING_ALLOWED=NO build
 ```
+
+## Apple Login And IAP
+
+Apple setup links:
+
+- Apple Identifiers / Service ID: https://developer.apple.com/account/resources/identifiers/list
+- Apple Sign in environment docs: https://developer.apple.com/documentation/signinwithapple/configuring-your-environment-for-sign-in-with-apple
+- Apple App Store Connect subscriptions: https://appstoreconnect.apple.com/apps
+- Apple app shared secret: https://appstoreconnect.apple.com/access/shared-secret
+- Firebase Authentication providers: https://console.firebase.google.com/project/gen-lang-client-0477801246/authentication/providers
+
+Suggested Apple identifiers for this app:
+
+- iOS bundle ID / App ID: `com.repairsyncios.sms`
+- Service ID: `com.repairsyncios.sms.service`
+- Website domain for Sign in with Apple: `repairsync.ai.studio`
+- Firebase OAuth return URL: `https://gen-lang-client-0477801246.firebaseapp.com/__/auth/handler`
+
+Create these auto-renewable subscription product IDs in App Store Connect:
+
+- `com.repairsyncios.sms.starter.monthly`
+- `com.repairsyncios.sms.starter.yearly`
+- `com.repairsyncios.sms.pro.monthly`
+- `com.repairsyncios.sms.pro.yearly`
+
+Set `APPLE_IAP_SHARED_SECRET` in the backend runtime before testing Apple purchases. The iOS wrapper exposes `window.RepairSyncIAP` only inside the native iPhone app, so web and desktop checkout continue to use Stripe.

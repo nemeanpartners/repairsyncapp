@@ -1,4 +1,5 @@
 import { Router } from "express";
+import axios from "axios";
 import Stripe from "stripe";
 import {
   collection,
@@ -39,12 +40,58 @@ const PRICE_ENV_MAP: Record<
   },
 };
 
+const APPLE_IAP_PRODUCT_MAP: Record<
+  string,
+  { plan: Exclude<BillingPlan, "enterprise">; interval: BillingInterval }
+> = {
+  [process.env.APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID || "com.repairsyncios.sms.starter.monthly"]: {
+    plan: "starter",
+    interval: "monthly",
+  },
+  [process.env.APPLE_IAP_STARTER_YEARLY_PRODUCT_ID || "com.repairsyncios.sms.starter.yearly"]: {
+    plan: "starter",
+    interval: "yearly",
+  },
+  [process.env.APPLE_IAP_PRO_MONTHLY_PRODUCT_ID || "com.repairsyncios.sms.pro.monthly"]: {
+    plan: "pro",
+    interval: "monthly",
+  },
+  [process.env.APPLE_IAP_PRO_YEARLY_PRODUCT_ID || "com.repairsyncios.sms.pro.yearly"]: {
+    plan: "pro",
+    interval: "yearly",
+  },
+};
+
+type AppleReceiptItem = {
+  product_id?: string;
+  transaction_id?: string;
+  original_transaction_id?: string;
+  expires_date_ms?: string;
+  cancellation_date_ms?: string;
+};
+
+type AppleReceiptVerification = {
+  status: number;
+  latest_receipt_info?: AppleReceiptItem[];
+  receipt?: {
+    in_app?: AppleReceiptItem[];
+  };
+};
+
 function getStripeClient() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
   if (!secretKey) {
     throw new Error("Missing STRIPE_SECRET_KEY");
   }
   return new Stripe(secretKey);
+}
+
+function getAppleSharedSecret() {
+  const sharedSecret = process.env.APPLE_IAP_SHARED_SECRET;
+  if (!sharedSecret) {
+    throw new Error("Missing APPLE_IAP_SHARED_SECRET");
+  }
+  return sharedSecret;
 }
 
 import { getServerDb } from "../firebase.js";
@@ -195,6 +242,120 @@ async function syncSubscriptionState(params: {
   };
 }
 
+async function verifyAppleReceipt(receiptData: string) {
+  const sharedSecret = getAppleSharedSecret();
+  const payload = {
+    "receipt-data": receiptData,
+    password: sharedSecret,
+    "exclude-old-transactions": false,
+  };
+
+  const verify = async (url: string) => {
+    const response = await axios.post<AppleReceiptVerification>(url, payload, {
+      timeout: 15000,
+    });
+    return response.data;
+  };
+
+  let verification = await verify("https://buy.itunes.apple.com/verifyReceipt");
+  if (verification.status === 21007) {
+    verification = await verify("https://sandbox.itunes.apple.com/verifyReceipt");
+  }
+
+  if (verification.status !== 0) {
+    throw new Error(`Apple receipt verification failed with status ${verification.status}.`);
+  }
+
+  return verification;
+}
+
+function resolveAppleSubscription(
+  verification: AppleReceiptVerification,
+  requestedProductId?: string | null,
+) {
+  const receiptItems = [
+    ...(verification.latest_receipt_info || []),
+    ...(verification.receipt?.in_app || []),
+  ].filter((item) => item.product_id && APPLE_IAP_PRODUCT_MAP[item.product_id]);
+
+  const matchingItems = requestedProductId
+    ? receiptItems.filter((item) => item.product_id === requestedProductId)
+    : receiptItems;
+
+  const sortedItems = matchingItems.sort((a, b) => {
+    const aExpires = Number(a.expires_date_ms || 0);
+    const bExpires = Number(b.expires_date_ms || 0);
+    return bExpires - aExpires;
+  });
+
+  const item = sortedItems[0];
+  if (!item?.product_id) {
+    throw new Error("Apple receipt did not include a recognized RepairSync subscription.");
+  }
+
+  const product = APPLE_IAP_PRODUCT_MAP[item.product_id];
+  const expiresMs = Number(item.expires_date_ms || 0);
+  const canceled = Boolean(item.cancellation_date_ms);
+  const active = !canceled && (!expiresMs || expiresMs > Date.now());
+
+  return {
+    active,
+    productId: item.product_id,
+    transactionId: item.transaction_id || null,
+    originalTransactionId: item.original_transaction_id || item.transaction_id || null,
+    plan: product.plan,
+    interval: product.interval,
+    expiresAt: expiresMs ? new Date(expiresMs).toISOString() : null,
+  };
+}
+
+async function syncAppleSubscriptionState(params: {
+  uid: string;
+  email?: string | null;
+  productId: string;
+  transactionId?: string | null;
+  originalTransactionId?: string | null;
+  plan: Exclude<BillingPlan, "enterprise">;
+  interval: BillingInterval;
+  active: boolean;
+  expiresAt?: string | null;
+}) {
+  const { ref, data } = await ensureUserDocument(params.uid, params.email);
+  const existingEmail = typeof (data as any).email === "string" ? (data as any).email : null;
+
+  await setDoc(
+    ref,
+    {
+      email: params.email || existingEmail,
+      updatedAt: serverTimestamp(),
+      hasAccess: data.hasAccess !== false,
+      billingRequired: true,
+      subscriptionActive: params.active,
+      subscriptionStatus: params.active ? "active" : "canceled",
+      subscriptionSource: "apple_iap",
+      subscriptionGrandfathered: false,
+      subscriptionPlan: params.plan,
+      subscriptionInterval: params.interval,
+      appleProductId: params.productId,
+      appleTransactionId: params.transactionId || data.appleTransactionId || null,
+      appleOriginalTransactionId:
+        params.originalTransactionId || data.appleOriginalTransactionId || null,
+      subscriptionCurrentPeriodEnd:
+        params.expiresAt || data.subscriptionCurrentPeriodEnd || null,
+      subscriptionCheckoutCompletedAt: new Date().toISOString(),
+    },
+    { merge: true },
+  );
+
+  return {
+    subscriptionActive: params.active,
+    subscriptionStatus: params.active ? "active" : "canceled",
+    subscriptionPlan: params.plan,
+    subscriptionInterval: params.interval,
+    subscriptionCurrentPeriodEnd: params.expiresAt || null,
+  };
+}
+
 async function syncFromStripeSession(sessionId: string) {
   const stripe = getStripeClient();
   const session = await stripe.checkout.sessions.retrieve(sessionId, {
@@ -336,6 +497,56 @@ billingRouter.get("/api/billing/checkout-session/:sessionId", async (req, res) =
   } catch (error: any) {
     console.error("Stripe session sync failed", error);
     res.status(500).json({ error: error.message || "Unable to verify Stripe checkout session." });
+  }
+});
+
+billingRouter.post("/api/billing/apple/complete", async (req: any, res) => {
+  try {
+    const uid = req.headers["x-user-id"] || req.body.uid;
+    const email = req.headers["x-user-email"] || req.body.email || null;
+    const receiptData = req.body.receiptData;
+    const requestedProductId = req.body.productId || null;
+
+    if (!uid || typeof uid !== "string") {
+      return res.status(401).json({ error: "Authenticated user required." });
+    }
+
+    if (!receiptData || typeof receiptData !== "string") {
+      return res.status(400).json({ error: "Apple receipt data is required." });
+    }
+
+    const verification = await verifyAppleReceipt(receiptData);
+    const subscription = resolveAppleSubscription(verification, requestedProductId);
+    if (!subscription.active) {
+      return res.status(402).json({ error: "Apple subscription is not active." });
+    }
+
+    const result = await syncAppleSubscriptionState({
+      uid,
+      email,
+      productId: subscription.productId,
+      transactionId: subscription.transactionId || req.body.transactionId || null,
+      originalTransactionId:
+        subscription.originalTransactionId || req.body.originalTransactionId || null,
+      plan: subscription.plan,
+      interval: subscription.interval,
+      active: subscription.active,
+      expiresAt: subscription.expiresAt,
+    });
+
+    res.json({
+      source: "apple_iap",
+      productId: subscription.productId,
+      transactionId: subscription.transactionId,
+      originalTransactionId: subscription.originalTransactionId,
+      ...result,
+    });
+  } catch (error: any) {
+    console.error("Apple subscription verification failed", error);
+    const status = error?.message === "Missing APPLE_IAP_SHARED_SECRET" ? 503 : 500;
+    res.status(status).json({
+      error: error.message || "Unable to verify Apple subscription.",
+    });
   }
 });
 
