@@ -131,6 +131,83 @@ axios.interceptors.response.use(
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  const SUPPORT_EMAIL = 'nemeanpartnersptyltd@gmail.com';
+
+  function legalPage(title: string, subtitle: string, body: string) {
+    return `<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>${title} | RepairSync</title>
+    <meta name="application-name" content="RepairSync" />
+    <meta name="description" content="RepairSync is a repair business management app for repair tickets, customers, messaging, invoices, inventory, and technician workflows." />
+    <style>
+      body{margin:0;background:#f4f4f5;color:#09090b;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;line-height:1.6}
+      main{max-width:760px;margin:0 auto;padding:32px 20px 56px}
+      header{background:#09090b;color:white;border-radius:24px;padding:28px;margin-bottom:18px}
+      h1{margin:8px 0 0;font-size:36px;line-height:1.05}
+      h2{font-size:20px;margin:0 0 8px}
+      p,li{font-size:15px}
+      section{background:white;border:1px solid #e4e4e7;border-radius:18px;padding:22px;margin-top:14px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+      a{color:#09090b;font-weight:800}
+      .eyebrow{margin:0;color:#34d399;text-transform:uppercase;letter-spacing:.18em;font-size:12px;font-weight:900}
+      .nav{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:18px}
+      .nav a,.button{display:inline-flex;align-items:center;justify-content:center;border-radius:14px;border:1px solid #d4d4d8;background:white;padding:10px 14px;text-decoration:none;font-size:14px}
+      .button{background:#09090b;color:white;border-color:#09090b;margin-top:10px}
+    </style>
+  </head>
+  <body>
+    <main>
+      <nav class="nav">
+        <a href="/">RepairSync Home</a>
+        <a href="/privacy-policy">Privacy Policy</a>
+        <a href="/terms">Terms</a>
+        <a href="/support">Support</a>
+      </nav>
+      <header>
+        <p class="eyebrow">RepairSync</p>
+        <h1>${title}</h1>
+        <p>${subtitle}</p>
+      </header>
+      ${body}
+    </main>
+  </body>
+</html>`;
+  }
+
+  app.get('/privacy-policy', (_req, res) => {
+    res.type('html').send(legalPage(
+      'Privacy Policy',
+      'Effective date: 4 June 2026. RepairSync is a repair business management app.',
+      `<section><h2>Who We Are</h2><p>RepairSync provides repair business management software for customer management, repair tickets, messaging, invoicing, quoting, inventory management, technician workflows, automation, and related repair shop operations.</p><p><strong>Support contact:</strong> <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a></p></section>
+      <section><h2>Information We Collect</h2><ul><li>Business details, account settings, and support email information.</li><li>User account details including name, email address, role, and permissions.</li><li>Customer records entered by repair businesses, including contact details, device details, tickets, repair history, invoices, quotes, and messages.</li><li>Operational records such as inventory, parts orders, tasks, workflow settings, and automation settings.</li></ul></section>
+      <section><h2>How We Use Information</h2><ul><li>Provide, maintain, and secure RepairSync.</li><li>Authenticate users and manage account access.</li><li>Display customer, ticket, invoice, quote, inventory, and messaging records.</li><li>Provide reporting, workflow, automation, and integration features.</li><li>Respond to support requests and troubleshoot platform issues.</li></ul></section>
+      <section><h2>Sharing and Security</h2><p>RepairSync does not sell personal information. Information may be processed by service providers that help operate cloud hosting, authentication, messaging, payments, backups, infrastructure, and integrations enabled by the business. We use reasonable technical and organisational safeguards to protect information.</p></section>
+      <section><h2>Access, Correction, and Deletion</h2><p>Users may request access to, correction of, or deletion of personal information, subject to applicable legal, accounting, taxation, security, and compliance requirements.</p></section>
+      <section><h2>Contact</h2><p>For privacy enquiries, access requests, correction requests, deletion requests, complaints, or support, contact <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p></section>`
+    ));
+  });
+
+  app.get('/terms', (_req, res) => {
+    res.type('html').send(legalPage(
+      'Terms of Service',
+      'Effective date: 4 June 2026. These terms govern access to and use of RepairSync.',
+      `<section><h2>Use of RepairSync</h2><p>RepairSync is a repair business management app for customer management, ticket tracking, messaging, invoicing, quoting, inventory management, workflow automation, and related repair shop operations. You may use RepairSync only for lawful business purposes.</p></section>
+      <section><h2>Accounts and Data</h2><p>You are responsible for account credentials and activity under your account. You retain ownership of business and customer data entered into RepairSync, and we process that data to provide, secure, maintain, and improve the service.</p></section>
+      <section><h2>Subscriptions</h2><p>Paid features may require an active subscription. Subscription terms, pricing, billing intervals, renewals, cancellation options, and any Apple in-app purchase or Stripe checkout details are presented at purchase or in account settings.</p></section>
+      <section><h2>Contact</h2><p>For questions about these terms, contact <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p></section>`
+    ));
+  });
+
+  app.get(['/support', '/contact'], (_req, res) => {
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('RepairSync support request')}&body=${encodeURIComponent('Hi RepairSync Support,\\n\\nI need help with:\\n\\n')}`;
+    res.type('html').send(legalPage(
+      'Contact Us',
+      'Contact RepairSync support for account, billing, privacy, or app support help.',
+      `<section><h2>Support Contact</h2><p>Email Nemean Partners Pty Ltd for RepairSync support.</p><p><strong><a href="${mailto}">${SUPPORT_EMAIL}</a></strong></p><p><a class="button" href="${mailto}">Email RepairSync Support</a></p></section>`
+    ));
+  });
 
   app.use('/api/billing/webhook', express.raw({ type: 'application/json' }));
   app.use(express.json({ limit: '50mb' }));

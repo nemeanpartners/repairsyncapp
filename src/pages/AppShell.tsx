@@ -39,6 +39,7 @@ import { useShop } from "../providers/ShopProvider";
 import { PublicQuoteForm } from "./Quotes/PublicQuoteForm";
 import { PrivacyPolicyView } from "./PrivacyPolicyView";
 import { TermsOfServiceView } from "./TermsOfServiceView";
+import { SupportContactView } from "./SupportContactView";
 import { PaymentsPage } from "./PaymentsPage";
 import { PaymentSuccessPage } from "./PaymentSuccessPage";
 
@@ -278,6 +279,10 @@ export function AppShell() {
 
   if (location.pathname === "/terms") {
     return <TermsOfServiceView onClose={() => navigate("/")} />;
+  }
+
+  if (location.pathname === "/support" || location.pathname === "/contact") {
+    return <SupportContactView onClose={() => navigate("/")} />;
   }
 
   if (location.pathname === "/payments" || location.pathname === "/payments/success") {
