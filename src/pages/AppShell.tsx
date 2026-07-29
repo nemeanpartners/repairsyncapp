@@ -371,7 +371,7 @@ export function AppShell() {
         className={`
         fixed inset-y-0 left-0 z-[80] bg-white border-r border-zinc-200 flex flex-col transition-[width,transform] duration-300 ease-in-out print:hidden
         md:relative md:translate-x-0 shrink-0
-        ${isDesktopCollapsed ? "w-[240px] md:w-[68px]" : "w-max min-w-[240px] md:min-w-[280px]"}
+        ${isDesktopCollapsed ? "w-[min(360px,calc(100vw-2rem))] md:w-[68px]" : "w-[min(360px,calc(100vw-2rem))] md:w-[280px]"}
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
       `}
       >
@@ -397,7 +397,7 @@ export function AppShell() {
         </div>
 
         <DragDropContext onDragEnd={onDragEnd}>
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4 space-y-6">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 pt-4 pb-4 space-y-6">
           {navGroups.map((group) => {
             return (
               <div key={group.title} className="space-y-1">
@@ -532,7 +532,7 @@ export function AppShell() {
         </div>
 
         {/* User Profile */}
-        <div className="hidden md:block p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-zinc-100 flex-shrink-0 bg-white">
+        <div className="block p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] border-t border-zinc-100 flex-shrink-0 bg-white shadow-[0_-8px_18px_rgba(255,255,255,0.92)] md:shadow-none">
           {user ? (
             <div
               className={`flex items-center p-2 rounded-xl hover:bg-zinc-50 transition-colors group cursor-pointer ${isDesktopCollapsed ? "md:flex-col md:justify-center justify-between" : "justify-between"}`}
