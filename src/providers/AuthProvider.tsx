@@ -48,13 +48,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const inviteQuery = query(collectionGroup(db, "users"), where("email", "==", email));
     const snapshot = await getDocs(inviteQuery);
-    const inviteDoc = snapshot.docs.find((candidate) => candidate.ref.path.startsWith("companies/"));
+    const companyInvites = snapshot.docs
+      .filter((candidate) => candidate.ref.path.startsWith("companies/"))
+      .map((candidate) => {
+        const [, companyId, , userDocId] = candidate.ref.path.split("/");
+        const data = candidate.data();
+        return { companyId, userDocId, data, ref: candidate.ref };
+      });
+    const usableInvites = companyInvites.filter((candidate) => candidate.companyId !== currentUser.uid);
+    const rankedInvites = (usableInvites.length > 0 ? usableInvites : companyInvites).sort((a, b) => {
+      const aScore =
+        Number(a.userDocId === email) * 4 +
+        Number(Boolean(a.data.invitedBy || a.data.invitedByEmail)) * 2 +
+        Number(a.data.hasAccess !== false);
+      const bScore =
+        Number(b.userDocId === email) * 4 +
+        Number(Boolean(b.data.invitedBy || b.data.invitedByEmail)) * 2 +
+        Number(b.data.hasAccess !== false);
+      return bScore - aScore;
+    });
+    const inviteDoc = rankedInvites[0];
     if (!inviteDoc) return null;
 
-    const [, companyId] = inviteDoc.ref.path.split("/");
     return {
-      companyId,
-      data: inviteDoc.data(),
+      companyId: inviteDoc.companyId,
+      data: inviteDoc.data,
     };
   };
 

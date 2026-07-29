@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { auth, db } from '../firebase';
 import { doc, query, getDocs, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
-import { Trash2, UserPlus, ShieldAlert, KeyRound } from 'lucide-react';
+import { Trash2, UserPlus, KeyRound, Mail, ShieldCheck } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
@@ -44,6 +44,8 @@ export const TeamMembersSettings: React.FC = () => {
   const [temporaryPassword, setTemporaryPassword] = useState('');
   const [isLoading, setIsLoading] = useState(true);
   const { profile, user } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.permissions?.includes("admin");
+  const canManageTeam = isAdmin || Boolean(profile?.permissions?.includes("settings:team"));
 
   const fetchMembers = async () => {
     try {
@@ -87,6 +89,7 @@ export const TeamMembersSettings: React.FC = () => {
   };
 
   const handleSaveDisplayName = async (id: string, displayName: string) => {
+    if (!canManageTeam) return;
     try {
       await setDoc(companyDoc('users', id), {
         displayName
@@ -99,6 +102,10 @@ export const TeamMembersSettings: React.FC = () => {
   };
 
   const handleTogglePermission = async (member: TeamMember, permission: string) => {
+    if (!isAdmin) {
+      toast.error("Only a company admin can change settings permissions.");
+      return;
+    }
     const currentPermissions = new Set(member.permissions || []);
     if (currentPermissions.has(permission)) {
       currentPermissions.delete(permission);
@@ -139,6 +146,10 @@ export const TeamMembersSettings: React.FC = () => {
 
   const handleAddMember = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!canManageTeam) {
+      toast.error("You do not have permission to add team members.");
+      return;
+    }
     const email = newEmail.trim().toLowerCase();
     
     if (!email) return;
@@ -200,6 +211,10 @@ export const TeamMembersSettings: React.FC = () => {
   };
 
   const handleRemoveMember = (member: TeamMember) => {
+    if (!isAdmin) {
+      toast.error("Only a company admin can remove users.");
+      return;
+    }
     toast(`Remove access for ${member.email}?`, {
       action: {
         label: 'Confirm',
@@ -229,27 +244,18 @@ export const TeamMembersSettings: React.FC = () => {
     });
   };
 
-  const isAdmin = profile?.role === "admin" || profile?.permissions?.includes("admin");
-
-  if (!isAdmin) {
-    return (
-      <div className="space-y-4">
-        <h3 className="text-lg font-bold">Team Members</h3>
-        <div className="p-6 bg-secondary/30 rounded-2xl border border-border/30 flex items-start gap-4">
-          <ShieldAlert className="w-8 h-8 text-amber-500" />
-          <div>
-            <h4 className="font-bold">Admin Privileges Required</h4>
-            <p className="text-sm text-muted-foreground mt-1">Only a company admin can manage team members and access permissions.</p>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-bold">Team Members</h3>
+      <div>
+        <h3 className="text-lg font-bold">Team Members</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          {canManageTeam
+            ? "Invite staff and manage access for this company."
+            : "View your company team. Editing is controlled by your company admin."}
+        </p>
+      </div>
       <div className="p-6 bg-secondary/30 rounded-2xl border border-border/30 space-y-6">
+        {canManageTeam ? (
         <div>
           <h4 className="font-bold text-sm">Add Team Member</h4>
           <p className="text-xs text-muted-foreground mb-3">Grant day-to-day access to your company data. Team members can work tickets, customers, messages, invoices, tasks, and inventory, but cannot change settings or delete their own account.</p>
@@ -309,54 +315,80 @@ export const TeamMembersSettings: React.FC = () => {
             </Button>
           </form>
         </div>
+        ) : null}
 
-        <div className="space-y-3 pt-4 border-t border-border/30">
-          <h4 className="font-bold text-sm">Authorized Techs</h4>
+        <div className={`space-y-3 ${canManageTeam ? "pt-4 border-t border-border/30" : ""}`}>
+          <h4 className="font-bold text-sm">Company Users</h4>
           {members.length === 0 ? (
             <p className="text-sm text-muted-foreground italic">No team members added yet.</p>
           ) : (
-            <div className="space-y-2">
+            <div className="grid gap-3">
               {members.map((member) => {
-                const isCurrentAdmin = member.email === auth.currentUser?.email?.toLowerCase() || member.role === "admin";
+                const isCurrentUser = member.email === auth.currentUser?.email?.toLowerCase();
+                const settingsAccess = SETTINGS_PERMISSION_OPTIONS.filter((option) =>
+                  member.permissions?.includes(option.key),
+                );
                 return (
-                <div key={member.email} className="space-y-3 p-3 bg-white/40 border border-border/30 rounded-xl group hover:border-primary/20 transition-all">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
-                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                <div key={member.email} className="space-y-4 rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm transition-all hover:border-primary/20 hover:shadow-md">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex min-w-0 flex-1 items-start gap-3">
+                      <div className="w-11 h-11 rounded-2xl bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
                          {(member.displayName ? member.displayName.charAt(0) : member.email.charAt(0)).toUpperCase()}
                       </div>
                       <div className="flex-1 min-w-0">
-                        <Input
-                          className="h-8 -ml-2.5 px-2.5 bg-transparent border-transparent hover:bg-white/40 focus:bg-white hover:border-border/50 focus:border-primary/30 shadow-none font-bold text-sm transition-all"
-                          placeholder="Set Display Name..."
-                          value={member.displayName || ''}
-                          onChange={(e) => handleUpdateDisplayNameLocal(member.id, e.target.value)}
-                          onBlur={() => handleSaveDisplayName(member.id, member.displayName || '')}
-                          disabled={isLoading}
-                        />
-                        <div className="flex items-center gap-2 mt-0.5">
-                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{member.role}</p>
-                          <span className="w-1 h-1 rounded-full bg-border/50" />
-                          {member.authMethod === "email_password" ? <KeyRound className="h-3 w-3 text-zinc-400" /> : null}
-                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{member.authMethod || "google"}</p>
-                          <span className="w-1 h-1 rounded-full bg-border/50" />
-                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                        {canManageTeam ? (
+                          <Input
+                            className="h-9 -ml-2.5 px-2.5 bg-transparent border-transparent hover:bg-zinc-50 focus:bg-white hover:border-border/50 focus:border-primary/30 shadow-none font-bold text-sm transition-all"
+                            placeholder="Set Display Name..."
+                            value={member.displayName || ''}
+                            onChange={(e) => handleUpdateDisplayNameLocal(member.id, e.target.value)}
+                            onBlur={() => handleSaveDisplayName(member.id, member.displayName || '')}
+                            disabled={isLoading}
+                          />
+                        ) : (
+                          <h4 className="text-sm font-bold text-zinc-900">{member.displayName || "Team member"}</h4>
+                        )}
+                        <div className="mt-1 flex flex-wrap items-center gap-2">
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider ${member.role === "admin" ? "bg-emerald-50 text-emerald-700" : "bg-zinc-100 text-zinc-600"}`}>
+                            {member.role}
+                          </span>
+                          <span className="inline-flex items-center gap-1 rounded-full bg-zinc-100 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-zinc-600">
+                            {member.authMethod === "email_password" ? <KeyRound className="h-3 w-3" /> : null}
+                            {member.authMethod || "google"}
+                          </span>
+                          {isCurrentUser ? (
+                            <span className="rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-bold uppercase tracking-wider text-blue-700">
+                              You
+                            </span>
+                          ) : null}
+                        </div>
+                        <p className="mt-2 flex items-start gap-2 break-all text-xs font-medium text-zinc-600">
+                          <Mail className="mt-0.5 h-3.5 w-3.5 shrink-0 text-zinc-400" />
+                          {member.email}
+                        </p>
+                        <div className="mt-3 flex flex-wrap gap-1.5">
+                          {(member.permissions || []).filter((permission) => !permission.startsWith("settings:")).slice(0, 8).map((permission) => (
+                            <span key={permission} className="rounded-full border border-zinc-200 bg-zinc-50 px-2 py-0.5 text-[11px] font-semibold text-zinc-500">
+                              {permission}
+                            </span>
+                          ))}
                         </div>
                       </div>
                     </div>
-                    {!isCurrentAdmin && (
+                    {isAdmin && !isCurrentUser ? (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        className="h-9 w-9 rounded-xl text-red-500 hover:bg-red-50 hover:text-red-600"
                         onClick={() => handleRemoveMember(member)}
                         disabled={isLoading}
+                        title={`Remove ${member.email}`}
                       >
                         <Trash2 className="w-4 h-4" />
                       </Button>
-                    )}
+                    ) : null}
                   </div>
-                  {member.role !== "admin" ? (
+                  {member.role !== "admin" && isAdmin ? (
                     <div className="rounded-xl border border-zinc-200/70 bg-white/50 p-3">
                       <div className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
                         Optional settings access
@@ -381,6 +413,25 @@ export const TeamMembersSettings: React.FC = () => {
                           );
                         })}
                       </div>
+                    </div>
+                  ) : null}
+                  {member.role !== "admin" && !isAdmin ? (
+                    <div className="rounded-xl border border-zinc-200/70 bg-zinc-50 p-3">
+                      <div className="mb-2 flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                        <ShieldCheck className="h-3.5 w-3.5" />
+                        Settings access
+                      </div>
+                      {settingsAccess.length > 0 ? (
+                        <div className="flex flex-wrap gap-2">
+                          {settingsAccess.map((option) => (
+                            <span key={option.key} className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-bold text-emerald-700">
+                              {option.label}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-zinc-500">No settings edit permissions granted.</p>
+                      )}
                     </div>
                   ) : null}
                 </div>
