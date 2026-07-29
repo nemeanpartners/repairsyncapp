@@ -209,7 +209,13 @@ async function startServer() {
   });
 
   app.get(['/support', '/contact'], (_req, res) => {
-    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('RepairSync support request')}&body=${encodeURIComponent('Hi RepairSync Support,\\n\\nI need help with:\\n\\n')}`;
+    const supportEmailBody = [
+      'Hi RepairSync Support,',
+      '',
+      'I need help with:',
+      '',
+    ].join('\n');
+    const mailto = `mailto:${SUPPORT_EMAIL}?subject=${encodeURIComponent('RepairSync support request')}&body=${encodeURIComponent(supportEmailBody)}`;
     res.type('html').send(legalPage(
       'Contact Us',
       'Contact RepairSync support for account, billing, privacy, or app support help.',
