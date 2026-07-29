@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from "firebase/auth";
-import { auth, db } from "../firebase";
+import { auth, authPersistenceReady, db } from "../firebase";
 import axios from "axios";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { buildDefaultBillingProfile, UserBillingProfile } from "../lib/billing";
@@ -133,38 +133,51 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   };
 
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
-      setUser(user);
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    
+    authPersistenceReady.finally(() => {
+      if (cancelled) {
+        return;
+      }
+
+      unsubscribe = onAuthStateChanged(auth, async (user) => {
+        setUser(user);
       
-      // Update axios default headers globally
-      if (user) {
-        axios.defaults.headers.common['x-user-id'] = user.uid;
-        if (user.email) {
-          axios.defaults.headers.common["x-user-email"] = user.email;
+        // Update axios default headers globally
+        if (user) {
+          axios.defaults.headers.common['x-user-id'] = user.uid;
+          if (user.email) {
+            axios.defaults.headers.common["x-user-email"] = user.email;
+          } else {
+            delete axios.defaults.headers.common["x-user-email"];
+          }
+          if (user.isAnonymous) {
+            axios.defaults.headers.common['x-is-guest'] = 'true';
+          } else {
+            delete axios.defaults.headers.common['x-is-guest'];
+          }
+          try {
+            await syncUserProfile(user);
+          } catch (error) {
+            console.error("Failed to sync user billing profile", error);
+            setProfile(null);
+          }
         } else {
+          delete axios.defaults.headers.common['x-user-id'];
           delete axios.defaults.headers.common["x-user-email"];
-        }
-        if (user.isAnonymous) {
-          axios.defaults.headers.common['x-is-guest'] = 'true';
-        } else {
           delete axios.defaults.headers.common['x-is-guest'];
-        }
-        try {
-          await syncUserProfile(user);
-        } catch (error) {
-          console.error("Failed to sync user billing profile", error);
           setProfile(null);
         }
-      } else {
-        delete axios.defaults.headers.common['x-user-id'];
-        delete axios.defaults.headers.common["x-user-email"];
-        delete axios.defaults.headers.common['x-is-guest'];
-        setProfile(null);
-      }
       
-      setLoading(false);
+        setLoading(false);
+      });
+
     });
-    return unsubscribe;
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const signOut = async () => {
@@ -181,7 +194,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   return (
     <AuthContext.Provider value={{ user, profile, loading, signOut, refreshProfile }}>
-      {!loading && children}
+      {loading ? (
+        <div className="flex min-h-screen w-full items-center justify-center bg-white text-zinc-600">
+          <div className="flex flex-col items-center gap-4">
+            <div className="h-9 w-9 animate-spin rounded-full border-4 border-zinc-200 border-t-zinc-900" />
+            <div className="text-sm font-semibold tracking-wide">Loading RepairSync...</div>
+          </div>
+        </div>
+      ) : children}
     </AuthContext.Provider>
   );
 }

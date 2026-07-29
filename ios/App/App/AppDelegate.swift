@@ -12,6 +12,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
 
     var window: UIWindow?
     private weak var webView: WKWebView?
+    private var loadingOverlay: UIView?
+    private var loadingOverlayHideWorkItem: DispatchWorkItem?
     private var didInstallGoogleSignInBridge = false
     private var hasCompletedInitialActivation = false
     private var googleSignInInProgress = false
@@ -42,6 +44,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
         UNUserNotificationCenter.current().delegate = self
         SKPaymentQueue.default().add(self)
         configureGoogleSignIn()
+        showLoadingOverlay(message: "Loading RepairSync...")
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.4) {
             self.installGoogleSignInBridge(retryCount: 8)
         }
@@ -60,6 +63,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
+        showLoadingOverlay(message: "Restoring RepairSync...")
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
@@ -75,7 +79,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
             return
         }
         DispatchQueue.main.async {
-            self.refreshActiveWebView()
+            self.validateHostedAppRendered(after: 0.35)
+            self.validateHostedAppRendered(after: 2.0)
         }
     }
 
@@ -220,7 +225,85 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
         applyPendingNavigationIfNeeded()
         validateHostedAppRendered(after: 2.0)
         validateHostedAppRendered(after: 5.0)
+        hideLoadingOverlay(after: 12.0)
         NSLog("RepairSync Google Sign-In: native bridge installed")
+    }
+
+    private func showLoadingOverlay(message: String) {
+        DispatchQueue.main.async {
+            guard let window = self.window else {
+                return
+            }
+
+            self.loadingOverlayHideWorkItem?.cancel()
+
+            let overlay: UIView
+            let label: UILabel
+
+            if let existing = self.loadingOverlay {
+                overlay = existing
+                label = existing.viewWithTag(1202) as? UILabel ?? UILabel()
+            } else {
+                overlay = UIView(frame: window.bounds)
+                overlay.autoresizingMask = [.flexibleWidth, .flexibleHeight]
+                overlay.backgroundColor = UIColor.white
+                overlay.isUserInteractionEnabled = false
+
+                let stack = UIStackView()
+                stack.axis = .vertical
+                stack.alignment = .center
+                stack.spacing = 14
+                stack.translatesAutoresizingMaskIntoConstraints = false
+
+                let activity = UIActivityIndicatorView(style: .large)
+                activity.color = UIColor.systemGray
+                activity.startAnimating()
+
+                label = UILabel()
+                label.tag = 1202
+                label.textColor = UIColor(white: 0.28, alpha: 1)
+                label.font = UIFont.systemFont(ofSize: 15, weight: .semibold)
+                label.textAlignment = .center
+
+                stack.addArrangedSubview(activity)
+                stack.addArrangedSubview(label)
+                overlay.addSubview(stack)
+
+                NSLayoutConstraint.activate([
+                    stack.centerXAnchor.constraint(equalTo: overlay.centerXAnchor),
+                    stack.centerYAnchor.constraint(equalTo: overlay.centerYAnchor),
+                    stack.leadingAnchor.constraint(greaterThanOrEqualTo: overlay.leadingAnchor, constant: 24),
+                    stack.trailingAnchor.constraint(lessThanOrEqualTo: overlay.trailingAnchor, constant: -24)
+                ])
+
+                self.loadingOverlay = overlay
+            }
+
+            label.text = message
+            if overlay.superview == nil {
+                window.addSubview(overlay)
+            }
+            window.bringSubviewToFront(overlay)
+            overlay.alpha = 1
+        }
+    }
+
+    private func hideLoadingOverlay(after delay: TimeInterval = 0.0) {
+        DispatchQueue.main.async {
+            self.loadingOverlayHideWorkItem?.cancel()
+            let workItem = DispatchWorkItem { [weak self] in
+                guard let self, let overlay = self.loadingOverlay else {
+                    return
+                }
+                UIView.animate(withDuration: 0.18, animations: {
+                    overlay.alpha = 0
+                }, completion: { _ in
+                    overlay.removeFromSuperview()
+                })
+            }
+            self.loadingOverlayHideWorkItem = workItem
+            DispatchQueue.main.asyncAfter(deadline: .now() + delay, execute: workItem)
+        }
     }
 
     private func findBridgeViewController() -> CAPBridgeViewController? {
@@ -468,6 +551,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 if !isHostedRepairSync || looksBlank {
                     NSLog("RepairSync iOS detected blank WebView. href=\(href), textLength=\(textLength), rootChildren=\(rootChildren)")
                     self.forceLoadHostedApp(reason: looksBlank ? "blank-dom" : "wrong-url")
+                } else {
+                    self.hideLoadingOverlay(after: 0.15)
                 }
             }
         }
@@ -480,6 +565,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
         }
 
         blankWebViewRecoveryAttempts += 1
+        showLoadingOverlay(message: "Reloading RepairSync...")
         let cacheBust = Int(Date().timeIntervalSince1970)
         guard let url = URL(string: "\(hostedAppBaseURL)/?iosWrapperReload=\(cacheBust)") else {
             return
