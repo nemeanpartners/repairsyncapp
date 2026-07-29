@@ -117,6 +117,39 @@ async function setCompanyDoc(companyId, collectionName, docId, data, token) {
   return setDoc(`companies/${companyId}/${collectionName}`, docId, data, token);
 }
 
+async function listCompanyCollection(companyId, collectionName, token) {
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}` +
+    `/databases/${firebaseConfig.firestoreDatabaseId}/documents/companies/${companyId}/${collectionName}?pageSize=300`;
+  const response = await fetch(url, {
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  const body = await response.json();
+  if (!response.ok) {
+    throw new Error(`Firestore list failed for companies/${companyId}/${collectionName}: ${JSON.stringify(body)}`);
+  }
+  return body.documents || [];
+}
+
+async function deleteDocByName(name, token) {
+  const response = await fetch(`https://firestore.googleapis.com/v1/${name}`, {
+    method: "DELETE",
+    headers: { Authorization: `Bearer ${token}` },
+  });
+  if (!response.ok) {
+    const body = await response.text();
+    throw new Error(`Firestore delete failed for ${name}: ${body}`);
+  }
+}
+
+async function clearCompanyCollection(companyId, collectionName, token) {
+  const documents = await listCompanyCollection(companyId, collectionName, token);
+  for (const document of documents) {
+    await deleteDocByName(document.name, token);
+  }
+  console.log(`Cleared ${documents.length} docs from companies/${companyId}/${collectionName}`);
+}
+
 const reviewUid = await ensureReviewAuthUser();
 const token = accessToken();
 
@@ -199,6 +232,10 @@ await setCompanyDoc(
   token,
 );
 
+for (const collectionName of ["crm_customers", "crm_tickets", "tickets", "conversations", "messages"]) {
+  await clearCompanyCollection(reviewUid, collectionName, token);
+}
+
 const customers = [
   {
     id: "apple_review_customer_amelia",
@@ -240,6 +277,54 @@ const customers = [
     searchableTerms: "mia nguyen ipad charging port repair",
   },
 ];
+
+const extraCustomers = [
+  ["Liam", "O'Connor", "Brisbane Builders", "Samsung Galaxy S24 Ultra"],
+  ["Ava", "Wilson", "Wilson Legal", "iPhone 14 battery"],
+  ["Oliver", "Brown", "Brown Cafe", "iPad Pro screen"],
+  ["Isla", "Taylor", "Taylor Realty", "Google Pixel 8"],
+  ["Jack", "Martin", "Martin Electrical", "MacBook Pro keyboard"],
+  ["Charlotte", "Anderson", "Anderson Accounting", "Surface Pro charging"],
+  ["Henry", "Thomas", "Thomas Plumbing", "Samsung Tab display"],
+  ["Grace", "White", "White Design Co", "iPhone 13 camera"],
+  ["Leo", "Harris", "Harris Fitness", "Apple Watch battery"],
+  ["Ruby", "Clark", "Clark Hair Studio", "iPhone 15 back glass"],
+  ["Mason", "Lewis", "Lewis Carpentry", "Dell XPS fan"],
+  ["Chloe", "Walker", "Walker Consulting", "iPad Mini charging"],
+  ["Ethan", "Hall", "Hall Automotive", "Samsung A54 screen"],
+  ["Sophie", "Allen", "Allen Medical", "iPhone SE battery"],
+  ["Hudson", "Young", "Young Logistics", "Lenovo ThinkPad screen"],
+  ["Zoe", "King", "King Dental", "MacBook Air battery"],
+  ["Lucas", "Wright", "Wright Plumbing", "Pixel 7 display"],
+  ["Ella", "Scott", "Scott Florist", "iPhone XR charging port"],
+  ["Archie", "Green", "Green Landscapes", "iPad Air display"],
+  ["Matilda", "Baker", "Baker Finance", "Samsung S23 Ultra"],
+  ["Harvey", "Adams", "Adams Retail", "iPhone 12 speaker"],
+  ["Lily", "Nelson", "Nelson Creative", "MacBook Pro liquid damage"],
+  ["Cooper", "Carter", "Carter Health", "iPhone 11 battery"],
+  ["Poppy", "Mitchell", "Mitchell Events", "Surface Laptop display"],
+  ["Finn", "Perez", "Perez Barber", "Samsung Z Flip hinge"],
+  ["Evie", "Roberts", "Roberts Property", "iPhone 14 Pro Max"],
+  ["Oscar", "Turner", "Turner Workshop", "iPad 10th Gen glass"],
+];
+
+extraCustomers.forEach(([firstName, lastName, businessName, device], index) => {
+  const phoneSuffix = String(7000 + index).padStart(4, "0");
+  const id = `apple_review_customer_${String(index + 4).padStart(2, "0")}`;
+  customers.push({
+    id,
+    firstname: firstName,
+    lastname: lastName,
+    firstName,
+    lastName,
+    email: `${firstName.toLowerCase().replace(/[^a-z]/g, "")}.${lastName.toLowerCase().replace(/[^a-z]/g, "")}@example.com`,
+    phone: `+61400${phoneSuffix}`,
+    mobile: `+61400${phoneSuffix}`,
+    businessName,
+    normalizedName: `${firstName} ${lastName}`.toLowerCase(),
+    searchableTerms: `${firstName} ${lastName} ${businessName} ${device}`.toLowerCase(),
+  });
+});
 
 for (const customer of customers) {
   await setCompanyDoc(reviewUid, "crm_customers", customer.id, { ...customer, created_at: nowIso, ...common }, token);
@@ -299,6 +384,30 @@ const tickets = [
   },
 ];
 
+const ticketStatuses = ["Booked In", "Diagnosing", "Awaiting Parts", "In Repair", "Ready for Pickup"];
+const priorities = ["Normal", "High", "Urgent"];
+for (let index = tickets.length; index < 35; index += 1) {
+  const customer = customers[index % customers.length];
+  const ticketNumber = 1001 + index;
+  tickets.push({
+    id: `apple_review_ticket_${ticketNumber}`,
+    number: ticketNumber,
+    customer_id: customer.id,
+    customer_name: `${customer.firstName} ${customer.lastName}`,
+    tech_id: reviewUid,
+    technicianName: "Apple Review User",
+    subject: `${customer.businessName} repair workflow ${ticketNumber}`,
+    repair_category: index % 3 === 0 ? "Phone Repair" : index % 3 === 1 ? "Tablet Repair" : "Laptop Repair",
+    brand: index % 2 === 0 ? "Apple" : "Samsung",
+    device_model: index % 2 === 0 ? "iPhone 14 Pro" : "Galaxy S23",
+    problem_type: index % 2 === 0 ? "Screen and battery service" : "Charging and diagnostics",
+    status: ticketStatuses[index % ticketStatuses.length],
+    priority: priorities[index % priorities.length],
+    tags: ["apple-review", "demo"],
+    estimate_total: 119 + index * 8,
+  });
+}
+
 for (const ticket of tickets) {
   const data = {
     ...ticket,
@@ -310,43 +419,59 @@ for (const ticket of tickets) {
   await setCompanyDoc(reviewUid, "tickets", ticket.id, data, token);
 }
 
-await setCompanyDoc(
-  reviewUid,
-  "conversations",
-  "apple_review_conversation_amelia",
-  {
-    customerId: "apple_review_customer_amelia",
-    customerName: "Amelia Hart",
-    phone: "+61400111222",
-    preview: "Thanks, please go ahead with the display replacement.",
-    lastMessage: "Thanks, please go ahead with the display replacement.",
-    isUnread: true,
-    isYourTurn: true,
-    isUrgent: false,
-    isArchived: false,
-    updatedAt: nowIso,
-    ...common,
-  },
-  token,
-);
+for (let index = 0; index < 10; index += 1) {
+  const customer = customers[index];
+  const conversationId = `apple_review_conversation_${String(index + 1).padStart(2, "0")}`;
+  const messageText = [
+    "Can you confirm the repair estimate before starting?",
+    "I dropped the phone off this morning and need an update.",
+    "Please go ahead with the parts order.",
+    "Is the device ready for pickup today?",
+    "Can you send the invoice through?",
+    "The screen is flickering again after the repair.",
+    "I need to add a case and screen protector.",
+    "Please call me before replacing the battery.",
+    "Can you transfer the data as part of the repair?",
+    "I approved the quote in the customer portal.",
+  ][index];
+  await setCompanyDoc(
+    reviewUid,
+    "conversations",
+    conversationId,
+    {
+      customerId: customer.id,
+      customerName: `${customer.firstName} ${customer.lastName}`,
+      phone: customer.phone,
+      preview: messageText,
+      lastMessage: messageText,
+      isUnread: true,
+      isYourTurn: index % 2 === 0,
+      isUrgent: index === 0 || index === 5,
+      isArchived: false,
+      updatedAt: nowIso,
+      ...common,
+    },
+    token,
+  );
 
-await setCompanyDoc(
-  reviewUid,
-  "messages",
-  "apple_review_message_amelia_1",
-  {
-    conversationId: "apple_review_conversation_amelia",
-    customerId: "apple_review_customer_amelia",
-    from: "+61400111222",
-    to: "RepairSync",
-    text: "Thanks, please go ahead with the display replacement.",
-    type: "inbound",
-    direction: "inbound",
-    timestamp: nowIso,
-    ...common,
-  },
-  token,
-);
+  await setCompanyDoc(
+    reviewUid,
+    "messages",
+    `apple_review_message_${String(index + 1).padStart(2, "0")}`,
+    {
+      conversationId,
+      customerId: customer.id,
+      from: customer.phone,
+      to: "RepairSync",
+      text: messageText,
+      type: "inbound",
+      direction: "inbound",
+      timestamp: nowIso,
+      ...common,
+    },
+    token,
+  );
+}
 
 await setCompanyDoc(
   reviewUid,
@@ -418,3 +543,4 @@ await setCompanyDoc(
 
 console.log(`Seeded Apple review account and mock data for ${REVIEW_EMAIL}`);
 console.log(`Review account UID: ${reviewUid}`);
+console.log(`Seed counts: ${customers.length} customers, ${tickets.length} crm_tickets, 10 unread conversations`);

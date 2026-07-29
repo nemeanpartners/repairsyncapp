@@ -128,7 +128,7 @@ export function GlobalSearch() {
         <input
           ref={inputRef}
           type="text"
-          placeholder="Search sequence (Ctrl+K)"
+          placeholder="Search sequence"
           value={searchTerm}
           onChange={(e) => {
             setSearchTerm(e.target.value);

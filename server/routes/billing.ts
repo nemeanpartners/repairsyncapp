@@ -321,7 +321,18 @@ async function syncAppleSubscriptionState(params: {
   expiresAt?: string | null;
 }) {
   const { ref, data } = await ensureUserDocument(params.uid, params.email);
-  const existingEmail = typeof (data as any).email === "string" ? (data as any).email : null;
+  const existingData = data as Record<string, unknown>;
+  const existingEmail = typeof existingData.email === "string" ? existingData.email : null;
+  const appleTransactionId =
+    typeof existingData.appleTransactionId === "string" ? existingData.appleTransactionId : null;
+  const appleOriginalTransactionId =
+    typeof existingData.appleOriginalTransactionId === "string"
+      ? existingData.appleOriginalTransactionId
+      : null;
+  const subscriptionCurrentPeriodEnd =
+    typeof existingData.subscriptionCurrentPeriodEnd === "string"
+      ? existingData.subscriptionCurrentPeriodEnd
+      : null;
 
   await setDoc(
     ref,
@@ -337,11 +348,9 @@ async function syncAppleSubscriptionState(params: {
       subscriptionPlan: params.plan,
       subscriptionInterval: params.interval,
       appleProductId: params.productId,
-      appleTransactionId: params.transactionId || data.appleTransactionId || null,
-      appleOriginalTransactionId:
-        params.originalTransactionId || data.appleOriginalTransactionId || null,
-      subscriptionCurrentPeriodEnd:
-        params.expiresAt || data.subscriptionCurrentPeriodEnd || null,
+      appleTransactionId: params.transactionId || appleTransactionId,
+      appleOriginalTransactionId: params.originalTransactionId || appleOriginalTransactionId,
+      subscriptionCurrentPeriodEnd: params.expiresAt || subscriptionCurrentPeriodEnd,
       subscriptionCheckoutCompletedAt: new Date().toISOString(),
     },
     { merge: true },
