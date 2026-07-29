@@ -11,7 +11,6 @@ import { auth } from "../firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { toast } from "sonner";
 import { 
-  Apple,
   Sparkles, 
   MessageSquare, 
   ArrowRight, 
@@ -36,6 +35,8 @@ import {
   Globe, 
   Check, 
   HelpCircle, 
+  Eye,
+  EyeOff,
   BookOpen, 
   Menu, 
   X, 
@@ -69,6 +70,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
 
@@ -1500,9 +1502,30 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                       setIsAuthModalOpen(false);
                       onLogin();
                     }}
-                    className="w-full min-h-11 py-3 bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.18)]"
+                    className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#dadce0] bg-white px-4 text-[15px] font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.18)] transition-colors hover:bg-[#f8fafd] cursor-pointer"
                   >
-                    <span className="text-sm font-black text-[#4285f4] leading-none">G</span>
+                    <svg
+                      aria-hidden="true"
+                      className="h-[18px] w-[18px]"
+                      viewBox="0 0 18 18"
+                    >
+                      <path
+                        fill="#4285F4"
+                        d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
+                      />
+                      <path
+                        fill="#34A853"
+                        d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"
+                      />
+                      <path
+                        fill="#FBBC05"
+                        d="M3.97 10.72A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.05l3.01-2.33z"
+                      />
+                      <path
+                        fill="#EA4335"
+                        d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.59-2.58A8.65 8.65 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"
+                      />
+                    </svg>
                     Continue with Google
                   </button>
                   {onAppleLogin ? (
@@ -1512,9 +1535,16 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                         setIsAuthModalOpen(false);
                         onAppleLogin();
                       }}
-                      className="w-full min-h-11 py-3 bg-black hover:bg-zinc-900 border border-black text-white rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.25)]"
+                      className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-black bg-black px-4 text-[17px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.24)] transition-colors hover:bg-zinc-900 cursor-pointer"
                     >
-                      <Apple className="w-4 h-4 fill-white stroke-white" aria-hidden="true" />
+                      <svg
+                        aria-hidden="true"
+                        className="h-5 w-5"
+                        viewBox="0 0 24 24"
+                        fill="currentColor"
+                      >
+                        <path d="M16.37 1.51c0 1.06-.39 2.04-1.17 2.94-.94 1.07-2.08 1.69-3.32 1.59-.15-1.02.37-2.1 1.09-2.94.79-.93 2.17-1.64 3.4-1.59ZM20.39 17.08c-.53 1.21-.78 1.75-1.46 2.82-.95 1.45-2.29 3.26-3.95 3.27-1.48.01-1.86-.96-3.87-.95-2.01.01-2.43.97-3.91.95-1.66-.01-2.93-1.65-3.88-3.1-2.65-4.05-2.93-8.8-1.29-11.33 1.16-1.8 3-2.85 4.73-2.85 1.76 0 2.87.97 4.33.97 1.42 0 2.28-.97 4.33-.97 1.55 0 3.19.84 4.35 2.3-3.82 2.09-3.2 7.55.62 8.89Z" />
+                      </svg>
                       Continue with Apple
                     </button>
                   ) : null}
@@ -1581,15 +1611,25 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                     <label className="text-xs uppercase font-mono font-bold text-zinc-500" htmlFor="auth-password">
                       Security Password
                     </label>
-                    <input
-                      type="password"
-                      id="auth-password"
-                      value={authPassword}
-                      onChange={(e) => setAuthPassword(e.target.value)}
-                      placeholder="••••••••••••••"
-                      className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-900 focus:border-purple-500 rounded-xl text-xs text-white placeholder-zinc-750 outline-none transition-colors"
-                      required
-                    />
+                    <div className="relative">
+                      <input
+                        type={showAuthPassword ? "text" : "password"}
+                        id="auth-password"
+                        value={authPassword}
+                        onChange={(e) => setAuthPassword(e.target.value)}
+                        placeholder="••••••••••••••"
+                        className="w-full px-4 py-2.5 pr-12 bg-zinc-900 border border-zinc-900 focus:border-purple-500 rounded-xl text-xs text-white placeholder-zinc-750 outline-none transition-colors"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowAuthPassword((value) => !value)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 transition-colors hover:bg-zinc-800 hover:text-zinc-200"
+                        aria-label={showAuthPassword ? "Hide password" : "Show password"}
+                      >
+                        {showAuthPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                      </button>
+                    </div>
                   </div>
 
                   <button

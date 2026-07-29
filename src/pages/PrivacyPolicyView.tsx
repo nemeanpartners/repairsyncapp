@@ -60,7 +60,7 @@ export function PrivacyPolicyView({ onClose, closeLabel = "Go Back to App" }: Pr
               <div className="rounded-xl bg-zinc-50 p-3 sm:col-span-2">
                 <dt className="font-bold text-zinc-500">Support contact</dt>
                 <dd className="mt-1 font-semibold text-zinc-950">
-                  repairs.phonemedic.au@gmail.com
+                  nemeanpartnersptyltd@gmail.com
                 </dd>
               </div>
             </dl>
@@ -148,7 +148,7 @@ export function PrivacyPolicyView({ onClose, closeLabel = "Go Back to App" }: Pr
             <p className={paragraphClass}>
               For privacy enquiries, access requests, correction requests,
               deletion requests, or complaints, contact RepairSync support at
-              <span className="font-semibold text-zinc-950"> repairs.phonemedic.au@gmail.com</span>.
+              <span className="font-semibold text-zinc-950"> nemeanpartnersptyltd@gmail.com</span>.
             </p>
           </section>
         </div>

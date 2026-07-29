@@ -110,7 +110,7 @@ export function TermsOfServiceView({ onClose, closeLabel = "Go Back to App" }: T
             <h2 className={headingClass}>8. Contact</h2>
             <p className={paragraphClass}>
               For questions about these terms, contact RepairSync support at
-              <span className="font-semibold text-zinc-950"> repairs.phonemedic.au@gmail.com</span>.
+              <span className="font-semibold text-zinc-950"> nemeanpartnersptyltd@gmail.com</span>.
             </p>
           </section>
         </div>
