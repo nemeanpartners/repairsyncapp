@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
+  Apple,
   CheckCircle2,
   CreditCard,
   ExternalLink,
   Loader2,
   ShieldCheck,
+  X,
 } from "lucide-react";
 import { useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
@@ -20,6 +22,8 @@ import {
   signInWithRedirect,
 } from "firebase/auth";
 import { auth } from "../firebase";
+import { PrivacyPolicyView } from "./PrivacyPolicyView";
+import { TermsOfServiceView } from "./TermsOfServiceView";
 
 type NativeIAPPurchaseResult = {
   productId: string;
@@ -115,6 +119,7 @@ export function PaymentsPage() {
   );
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlan | null>(null);
   const [canUseAppleIAP, setCanUseAppleIAP] = useState(false);
+  const [legalModal, setLegalModal] = useState<"privacy" | "terms" | null>(null);
 
   const selectedPlan = useMemo<SubscriptionPlan>(() => {
     const requested = searchParams.get("plan");
@@ -315,24 +320,6 @@ export function PaymentsPage() {
       }
     });
 
-  const restoreApplePurchase = () => {
-    const iap = window.RepairSyncIAP;
-    if (!iap?.restore) {
-      toast.error("Apple restore is not available in this app build.");
-      return;
-    }
-    if (!user || user.isAnonymous) {
-      toast.error("Sign in before restoring an Apple purchase.");
-      return;
-    }
-    const started = iap.restore();
-    if (started) {
-      toast.info("Checking for Apple purchases to restore.");
-    } else {
-      toast.error("Unable to start Apple purchase restore.");
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#09090b] text-zinc-100 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))] md:px-10">
       <div className="mx-auto max-w-6xl">
@@ -350,15 +337,6 @@ export function PaymentsPage() {
               activation.
             </p>
           </div>
-          {canUseAppleIAP ? (
-            <button
-              type="button"
-              onClick={restoreApplePurchase}
-              className="rounded-xl border border-zinc-700 px-4 py-2 text-sm font-bold text-zinc-200 hover:bg-zinc-900"
-            >
-              Restore Apple Purchase
-            </button>
-          ) : null}
         </div>
 
         <div className="mb-8 flex items-center gap-2 rounded-2xl border border-zinc-800 bg-zinc-950 p-2 w-fit">
@@ -383,23 +361,46 @@ export function PaymentsPage() {
         </div>
 
         {!user || user.isAnonymous ? (
-          <div className="mb-8 rounded-2xl border border-amber-500/20 bg-amber-500/10 p-6">
+          <div className="mb-8 rounded-2xl border border-zinc-800 bg-zinc-950 p-5 sm:p-6">
             <h2 className="text-lg font-bold text-white mb-0">
               Sign in required before checkout
             </h2>
-            <div className="mt-4 flex flex-wrap gap-3">
+            <div className="mt-4 flex w-full flex-col gap-3 sm:max-w-sm">
               <button
                 type="button"
                 onClick={handleGoogleLogin}
-                className="rounded-xl bg-zinc-100 px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-white"
+                className="min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-zinc-50 flex items-center justify-center gap-3"
               >
+                <svg
+                  aria-hidden="true"
+                  className="h-4 w-4"
+                  viewBox="0 0 18 18"
+                >
+                  <path
+                    fill="#4285F4"
+                    d="M17.64 9.2c0-.64-.06-1.25-.16-1.84H9v3.48h4.84a4.14 4.14 0 0 1-1.8 2.72v2.26h2.92c1.7-1.57 2.68-3.88 2.68-6.62z"
+                  />
+                  <path
+                    fill="#34A853"
+                    d="M9 18c2.43 0 4.47-.8 5.96-2.18l-2.92-2.26c-.8.54-1.84.86-3.04.86-2.34 0-4.32-1.58-5.03-3.7H.96v2.33A9 9 0 0 0 9 18z"
+                  />
+                  <path
+                    fill="#FBBC05"
+                    d="M3.97 10.72A5.41 5.41 0 0 1 3.68 9c0-.6.1-1.18.29-1.72V4.95H.96A9 9 0 0 0 0 9c0 1.45.35 2.82.96 4.05l3.01-2.33z"
+                  />
+                  <path
+                    fill="#EA4335"
+                    d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.59-2.58A8.65 8.65 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"
+                  />
+                </svg>
                 Continue with Google
               </button>
               <button
                 type="button"
                 onClick={handleAppleLogin}
-                className="rounded-xl bg-white px-4 py-2 text-sm font-bold text-zinc-950 hover:bg-zinc-100"
+                className="min-h-11 w-full rounded-lg border border-black bg-black px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-colors hover:bg-zinc-900 flex items-center justify-center gap-2.5"
               >
+                <Apple className="h-4 w-4 fill-white stroke-white" aria-hidden="true" />
                 Continue with Apple
               </button>
             </div>
@@ -494,7 +495,50 @@ export function PaymentsPage() {
             },
           )}
         </div>
+
+        <div className="mt-10 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pb-[env(safe-area-inset-bottom)] text-xs text-zinc-500">
+          <button
+            type="button"
+            onClick={() => setLegalModal("terms")}
+            className="font-semibold text-zinc-400 underline-offset-4 hover:text-zinc-200 hover:underline"
+          >
+            Terms of Service
+          </button>
+          <button
+            type="button"
+            onClick={() => setLegalModal("privacy")}
+            className="font-semibold text-zinc-400 underline-offset-4 hover:text-zinc-200 hover:underline"
+          >
+            Privacy Policy
+          </button>
+        </div>
       </div>
+
+      {legalModal ? (
+        <div
+          className="fixed inset-0 z-50 bg-black/80 p-3 sm:p-6 backdrop-blur-sm"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="relative mx-auto flex h-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-white shadow-2xl">
+            <button
+              type="button"
+              onClick={() => setLegalModal(null)}
+              className="absolute right-3 top-3 z-10 rounded-full bg-zinc-900 p-2 text-white shadow-lg transition-colors hover:bg-zinc-700"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+            <div className="min-h-0 flex-1 overflow-y-auto">
+              {legalModal === "privacy" ? (
+                <PrivacyPolicyView onClose={() => setLegalModal(null)} />
+              ) : (
+                <TermsOfServiceView onClose={() => setLegalModal(null)} />
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

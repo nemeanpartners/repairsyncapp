@@ -535,28 +535,6 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
         </motion.div>
       </section>
 
-      {/* STICKY CTA MOBILE BOTTOM PRESET */}
-      <div className="fixed bottom-0 left-0 right-0 px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] bg-[#09090b]/90 border-t border-zinc-800/80 backdrop-blur-md z-30 flex md:hidden items-center justify-between">
-        <div>
-          <p className="text-xs font-semibold text-purple-400 uppercase tracking-wide">RepairSync OS</p>
-          <p className="text-xs text-zinc-300 font-extrabold">Instant technician platform</p>
-        </div>
-        <div className="flex gap-2">
-          <button 
-            onClick={onGuestLogin}
-            className="px-4 py-2 border border-zinc-800 text-white hover:bg-zinc-800 rounded-lg text-xs font-bold"
-          >
-            Demo
-          </button>
-          <button 
-            onClick={onLogin}
-            className="px-5 py-2 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 text-zinc-50 rounded-lg text-xs font-black shadow-lg"
-          >
-            Sign In
-          </button>
-        </div>
-      </div>
-
       {/* METRIC RIBBON */}
       <section className="border-y border-zinc-800 bg-zinc-950/80 py-10">
         <div className="max-w-7xl mx-auto px-6 lg:px-16 grid grid-cols-2 lg:grid-cols-4 gap-8 text-center">
