@@ -4,6 +4,8 @@ coverage/
 .DS_Store
 *.log
 *.tsbuildinfo
+AuthKey_*.p8
+**/AuthKey_*.p8
 p1.patch
 p2.patch
 .env*

@@ -1519,6 +1519,38 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                   </button>
                 </div>
 
+                <div className="space-y-3 mb-6">
+                  {onAppleLogin ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsAuthModalOpen(false);
+                        onAppleLogin();
+                      }}
+                      className="w-full min-h-11 py-3 bg-white hover:bg-zinc-100 border border-white text-zinc-950 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+                    >
+                      {isSignUp ? "Sign up with Apple" : "Sign in with Apple"}
+                    </button>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onLogin();
+                    }}
+                    className="w-full min-h-11 py-3 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-100 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+                  >
+                    Sign in to RepairSync with Google
+                  </button>
+                  <div className="relative flex py-1 items-center">
+                    <div className="flex-grow border-t border-zinc-900"></div>
+                    <span className="flex-shrink mx-4 text-[9px] uppercase font-mono font-bold text-zinc-650">
+                      Or use email
+                    </span>
+                    <div className="flex-grow border-t border-zinc-900"></div>
+                  </div>
+                </div>
+
                 <form
                   onSubmit={async (e) => {
                     e.preventDefault();
@@ -1615,36 +1647,6 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                 </form>
               </div>
 
-              <div className="space-y-3 mt-6">
-                <div className="relative flex py-2 items-center">
-                  <div className="flex-grow border-t border-zinc-900"></div>
-                  <span className="flex-shrink mx-4 text-[9px] uppercase font-mono font-bold text-zinc-650">Secure SSO Alternate</span>
-                  <div className="flex-grow border-t border-zinc-900"></div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    setIsAuthModalOpen(false);
-                    onLogin();
-                  }}
-                  className="w-full py-2.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-900 text-zinc-300 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
-                >
-                  Continue with Google SSO
-                </button>
-                {onAppleLogin ? (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAuthModalOpen(false);
-                      onAppleLogin();
-                    }}
-                    className="w-full py-2.5 bg-white hover:bg-zinc-100 border border-white text-zinc-950 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    Continue with Apple
-                  </button>
-                ) : null}
-              </div>
             </motion.div>
           </motion.div>
         )}
