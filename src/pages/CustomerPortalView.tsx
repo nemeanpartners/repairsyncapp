@@ -328,7 +328,7 @@ export function CustomerPortalView() {
   const handleSmsStore = () => {
     const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
     const separator = isIos ? '&' : '?';
-    const text = `Hi Phone Medic, I have a question about my repair ticket #${ticket?.number || ticket?.id || ''}`;
+    const text = `Hi RepairSync support, I have a question about my repair ticket #${ticket?.number || ticket?.id || ''}`;
     window.location.href = `sms:+61480807789${separator}body=${encodeURIComponent(text)}`;
   };
 
@@ -524,4 +524,3 @@ export function CustomerPortalView() {
     </div>
   );
 }
-

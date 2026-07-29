@@ -133,6 +133,37 @@ export function SettingsView() {
 
   const activeTabContext = SETTING_TABS.find((t) => t.id === activeTab);
 
+  if (!isAdmin) {
+    return (
+      <div className="flex h-full w-full flex-col bg-white">
+        <div className="border-b border-zinc-200 px-4 py-5 md:px-8">
+          <h1 className="text-xl font-bold tracking-tight text-zinc-900">Team Access</h1>
+          <p className="mt-1 text-sm text-zinc-500">
+            Your account is managed by your company admin.
+          </p>
+        </div>
+        <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-4 md:p-8">
+          <div className="max-w-2xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <h2 className="text-lg font-bold text-zinc-900">Day-to-day workspace access</h2>
+            <p className="mt-3 text-sm leading-6 text-zinc-600">
+              You can work with the company dashboard, tickets, customers,
+              messages, tasks, invoices, inventory, and repair workflows your
+              admin has enabled for you. Settings, billing, team management,
+              integrations, and account deletion are controlled by your company
+              admin.
+            </p>
+            <div className="mt-5 rounded-xl bg-zinc-50 p-4 text-sm text-zinc-600">
+              Signed in as <span className="font-semibold text-zinc-900">{profile?.role || "team member"}</span>
+              {profile?.companyName ? (
+                <> for <span className="font-semibold text-zinc-900">{profile.companyName}</span></>
+              ) : null}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const renderActiveTab = () => {
     switch (activeTab) {
       case "subscription":

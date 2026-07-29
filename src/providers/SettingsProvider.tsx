@@ -19,8 +19,8 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 const DEFAULT_SETTINGS: AppSettings = {
   general: {
-    shopName: '',
-    supportEmail: '',
+    shopName: 'RepairSync',
+    supportEmail: 'nemeanpartnersptyltd@gmail.com',
     businessPhone: '',
     address: '',
     timezone: 'Australia/Sydney',

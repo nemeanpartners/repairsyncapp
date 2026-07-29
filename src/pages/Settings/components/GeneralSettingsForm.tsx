@@ -41,14 +41,14 @@ export function GeneralSettingsForm() {
         
         <div className="space-y-2 pt-2">
           <Label>Shop Name</Label>
-          <Input {...register('shopName')} placeholder="e.g. Your Repair Business" />
+          <Input {...register('shopName')} placeholder="e.g. RepairSync Support" />
           {errors.shopName && <p className="text-xs text-red-500">{errors.shopName.message}</p>}
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label>Support Email</Label>
-            <Input {...register('supportEmail')} type="email" placeholder="support@domain.com" />
+            <Input {...register('supportEmail')} type="email" placeholder="nemeanpartnersptyltd@gmail.com" />
             {errors.supportEmail && <p className="text-xs text-red-500">{errors.supportEmail.message}</p>}
           </div>
           <div className="space-y-2">

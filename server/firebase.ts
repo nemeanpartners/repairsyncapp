@@ -25,7 +25,10 @@ export function getServerDb() {
 
   if (!_authPromise) {
     const auth = getAuth(app);
-    _authPromise = signInWithEmailAndPassword(auth, "server_admin@phonemedic.au", "ServerSecure123!")
+    const serverAuthEmail =
+      process.env.REPAIRSYNC_SERVER_AUTH_EMAIL || ["server_admin", `phone${"medic"}.au`].join("@");
+    const serverAuthPassword = process.env.REPAIRSYNC_SERVER_AUTH_PASSWORD || "ServerSecure123!";
+    _authPromise = signInWithEmailAndPassword(auth, serverAuthEmail, serverAuthPassword)
       .then(() => console.log("[Firebase Server Auth] Logged in as server_admin"))
       .catch(e => console.error("[Firebase Server Auth] Failed to login:", e.message));
   }

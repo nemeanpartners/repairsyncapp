@@ -14,10 +14,10 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
   const [customer, setCustomer] = useState<any>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [orgDetails, setOrgDetails] = useState({
-    name: "Phone Medic",
-    address_line_1: "123 Tech Lane",
-    address_line_2: "Sydney, NSW 2000",
-    abn: "12 345 678 901",
+    name: "RepairSync Support",
+    address_line_1: "",
+    address_line_2: "",
+    abn: "",
   });
 
   useEffect(() => {
@@ -72,7 +72,7 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
     try {
       const url = `${window.location.origin}/estimate/${estimate.id}`;
       const subject = `Repair Estimate for your device`;
-      const body = `Hi ${customer?.firstname || customer?.fullname || 'there'},<br><br>We've prepared a repair estimate for your device.<br><br>Please review and approve or decline by clicking the link below:<br><a href="${url}">${url}</a><br><br>Thank you,<br>Phone Medic Team`;
+      const body = `Hi ${customer?.firstname || customer?.fullname || 'there'},<br><br>We've prepared a repair estimate for your device.<br><br>Please review and approve or decline by clicking the link below:<br><a href="${url}">${url}</a><br><br>Thank you,<br>${orgDetails.name || 'RepairSync Support'}`;
       
       const { default: axios } = await import("axios");
       await axios.post("/api/zoho/send", {

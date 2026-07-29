@@ -137,12 +137,12 @@ aiRouter.post("/api/ai/draft-message", async (req, res) => {
     }
 
     const ai = getGeminiClient();
-    let prompt = `You are a helpful customer service representative for a phone repair shop called Phone Medic. Briefly draft a response to this conversation, keep it polite and professional, short and concise (1-2 sentences). Here is the recent chat history:\n\n`;
+    let prompt = `You are a helpful customer service representative for a repair business using RepairSync. Briefly draft a response to this conversation, keep it polite and professional, short and concise (1-2 sentences). Here is the recent chat history:\n\n`;
     
     recentMessages.forEach((m: any) => {
       prompt += `${m.sender}: ${m.text}\n`;
     });
-    prompt += `\nPhone Medic (Your Response):`;
+    prompt += `\nRepairSync operator response:`;
 
     const response = await ai.models.generateContent({
       model: "gemini-3.5-flash",

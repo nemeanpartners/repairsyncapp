@@ -20,7 +20,7 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
       if (!to || !text) return res.status(400).json({ error: "Missing 'to' or 'text' parameters" });
 
       const transport = process.env.RCS_PROVIDER_API_KEY ? 'rcs' : 'sms';
-      const actualFrom = process.env.RCS_PROVIDER_API_KEY ? "PhoneMedic Business" : (from || "system");
+      const actualFrom = process.env.RCS_PROVIDER_API_KEY ? "RepairSync Business" : (from || "system");
       
       const normalizedTo = normalizePhone(to);
       let messageDocRefId = req.body.messageId || 'external-auth';

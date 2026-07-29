@@ -283,7 +283,7 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
     setIsGenerating(true);
     try {
       const recentMessages = messages.slice(-10).map(m => ({
-        sender: (m.type === "outbound" || m.isInternal) ? "Phone Medic" : (m.customerName || "Customer"),
+        sender: (m.type === "outbound" || m.isInternal) ? "RepairSync" : (m.customerName || "Customer"),
         text: m.text
       }));
 

@@ -1,11 +1,18 @@
 import { Router } from 'express';
-import { getFirestore, collection, addDoc, updateDoc, doc, serverTimestamp, getDocs, getDoc, query, orderBy, where } from 'firebase/firestore';
+import { collection, addDoc, updateDoc, doc, serverTimestamp, getDocs, getDoc, query, orderBy, where, setDoc } from 'firebase/firestore';
+import fs from 'fs';
+import path from 'path';
 
 export const accountRouter = Router();
 
 import { getServerDb } from '../firebase.js';
 
 const getDb = () => getServerDb();
+
+function getFirebaseConfig() {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+}
 
 // Helper to simulate authentication token decoding (since this is client sdk admin hybrid)
 // For a real app with Firebase Admin, you would use admin.auth().verifyIdToken()
@@ -30,6 +37,118 @@ const checkAdmin = (req: any, res: any, next: any) => {
   next();
 };
 
+async function createEmailPasswordUser(email: string, password: string) {
+  const firebaseConfig = getFirebaseConfig();
+  const response = await fetch(
+    `https://identitytoolkit.googleapis.com/v1/accounts:signUp?key=${firebaseConfig.apiKey}`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        email,
+        password,
+        returnSecureToken: false,
+      }),
+    },
+  );
+  const data = await response.json();
+  if (!response.ok && data?.error?.message !== 'EMAIL_EXISTS') {
+    throw new Error(data?.error?.message || 'Failed to create Firebase Auth user');
+  }
+  if (data?.error?.message === 'EMAIL_EXISTS') {
+    return { uid: null, alreadyExists: true };
+  }
+  return { uid: data.localId as string, alreadyExists: false };
+}
+
+accountRouter.post('/api/team/invite', checkAuth, checkAdmin, async (req: any, res: any) => {
+  try {
+    const db = getDb();
+    const adminId = req.user.uid;
+    const email = String(req.body.email || '').trim().toLowerCase();
+    const displayName = String(req.body.displayName || '').trim();
+    const authMethod = req.body.authMethod === 'email_password'
+      ? 'email_password'
+      : req.body.authMethod === 'apple'
+        ? 'apple'
+        : 'google';
+    const password = String(req.body.password || '');
+    const companyId = String(req.body.companyId || req.headers['x-company-id'] || '').trim();
+    const companyName = String(req.body.companyName || '').trim() || null;
+
+    if (!companyId) return res.status(400).json({ error: 'Missing company ID' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+    if (authMethod === 'email_password' && password.length < 8) {
+      return res.status(400).json({ error: 'Temporary password must be at least 8 characters' });
+    }
+
+    let authUid: string | null = null;
+    let alreadyExists = false;
+    if (authMethod === 'email_password') {
+      const created = await createEmailPasswordUser(email, password);
+      authUid = created.uid;
+      alreadyExists = created.alreadyExists;
+    }
+
+    const memberData = {
+      uid: authUid,
+      email,
+      displayName: displayName || null,
+      role: 'tech',
+      permissions: ['tickets', 'customers', 'messages', 'tasks', 'invoices', 'inventory'],
+      hasAccess: true,
+      authMethod,
+      companyId,
+      companyName,
+      invitedBy: adminId,
+      invitedByEmail: req.headers['x-user-email'] || null,
+      addedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    await setDoc(doc(db, 'companies', companyId, 'users', email), memberData, { merge: true });
+
+    if (authUid) {
+      await setDoc(doc(db, 'companies', companyId, 'users', authUid), {
+        ...memberData,
+        uid: authUid,
+        linkedAt: serverTimestamp(),
+      }, { merge: true });
+      await setDoc(doc(db, 'users', authUid), {
+        uid: authUid,
+        email,
+        displayName: displayName || null,
+        companyId,
+        companyName,
+        role: 'tech',
+        permissions: memberData.permissions,
+        hasAccess: true,
+        billingRequired: false,
+        subscriptionActive: true,
+        subscriptionStatus: 'active',
+        subscriptionSource: 'company_invite',
+        invitedBy: adminId,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+    }
+
+    await addDoc(collection(db, 'companies', companyId, 'audit_logs'), {
+      action: 'TEAM_MEMBER_INVITED',
+      actorUserId: adminId,
+      targetEmail: email,
+      authMethod,
+      timestamp: serverTimestamp(),
+    }).catch(() => {});
+
+    res.json({ success: true, uid: authUid, alreadyExists, authMethod });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 1. Request Account Deletion
 accountRouter.post('/api/account/delete-request', checkAuth, async (req: any, res: any) => {
   try {
@@ -41,6 +160,9 @@ accountRouter.post('/api/account/delete-request', checkAuth, async (req: any, re
     const isGuest = req.headers['x-is-guest'] === 'true';
     if (isGuest) {
       return res.status(403).json({ error: 'Guest accounts cannot request deletion' });
+    }
+    if (req.headers['x-user-role'] !== 'admin') {
+      return res.status(403).json({ error: 'Team member accounts must be removed by their company admin' });
     }
 
     const requestRef = await addDoc(collection(db, 'accountDeletionRequests'), {

@@ -29,10 +29,10 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
   const [isApplyingPayment, setIsApplyingPayment] = useState(false);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [orgDetails, setOrgDetails] = useState({
-    name: "Phone Medic",
-    address_line_1: "123 Tech Lane",
-    address_line_2: "Sydney, NSW 2000",
-    abn: "12 345 678 901",
+    name: "RepairSync Support",
+    address_line_1: "",
+    address_line_2: "",
+    abn: "",
   });
 
   const [isSendingSms, setIsSendingSms] = useState(false);
@@ -200,7 +200,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
     doc.setFontSize(12);
     doc.setTextColor(33, 33, 33);
     doc.setFont(undefined, 'bold');
-    doc.text(orgDetails.name || "Phone Medic", rightColX, 22);
+    doc.text(orgDetails.name || "RepairSync Support", rightColX, 22);
     doc.setFont(undefined, 'normal');
     doc.setFontSize(10);
     doc.setTextColor(100, 100, 100);
@@ -349,8 +349,8 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
       const doc = generatePdfDoc();
       const base64Data = doc.output("datauristring");
       
-      const subject = `Invoice #${invoice?.invoice_number ? invoice.invoice_number.replace(/\D/g, '') : 'Receipt'} from Phone Medic`;
-      const body = `Hi ${customer?.firstname || customer?.fullname || ''},<br><br>Here is your invoice for a recent repair/purchase.<br><br>You can view it online here: <a href="${window.location.origin}/invoice/${invoiceId}">${window.location.origin}/invoice/${invoiceId}</a><br><br>Kind regards,<br>Phone Medic Team`;
+      const subject = `Invoice #${invoice?.invoice_number ? invoice.invoice_number.replace(/\D/g, '') : 'Receipt'} from ${orgDetails.name || 'RepairSync Support'}`;
+      const body = `Hi ${customer?.firstname || customer?.fullname || ''},<br><br>Here is your invoice for a recent repair/purchase.<br><br>You can view it online here: <a href="${window.location.origin}/invoice/${invoiceId}">${window.location.origin}/invoice/${invoiceId}</a><br><br>Kind regards,<br>${orgDetails.name || 'RepairSync Support'}`;
 
       await axios.post("/api/zoho/send", {
         toAddress: customer.email,

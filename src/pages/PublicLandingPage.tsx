@@ -956,7 +956,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
               <div className="flex justify-between items-center pb-4 border-b border-zinc-900">
                 <div>
                   <p className="text-[9px] uppercase tracking-wide text-[#a78bfa] font-black">Live Trace Portal</p>
-                  <h4 className="text-sm font-black text-zinc-100">Phone Medic Repair status</h4>
+                  <h4 className="text-sm font-black text-zinc-100">RepairSync repair status</h4>
                 </div>
                 <div className="text-right">
                   <p className="text-[9px] text-zinc-500 uppercase tracking-wide font-bold">Ticket Number</p>

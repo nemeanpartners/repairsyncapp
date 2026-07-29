@@ -281,7 +281,7 @@ export async function processNewTicketWebhook(payload: any) {
     const phone = customer ? (customer.mobile || customer.phone) : null;
 
     if (phone) {
-      let messageTemplate = "Hi {firstName}, your repair has been successfully booked under job #{ticketNumber}. For updates, simply reply to this message and our team will assist you shortly.\nKind regards Phone Medic Team";
+      let messageTemplate = "Hi {firstName}, your repair has been successfully booked under job #{ticketNumber}. For updates, simply reply to this message and our team will assist you shortly.\nKind regards, your repair team";
       try {
         const settingsDoc = await getDoc(companyDoc(db, "settings", "webhook_templates"));
         if (settingsDoc.exists() && settingsDoc.data().newTicketTemplate) {

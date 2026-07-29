@@ -251,6 +251,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           delete axios.defaults.headers.common['x-user-id'];
           delete axios.defaults.headers.common["x-user-email"];
+          delete axios.defaults.headers.common["x-user-role"];
+          delete axios.defaults.headers.common["x-company-id"];
           delete axios.defaults.headers.common['x-is-guest'];
           setLoading(false);
         }
@@ -262,6 +264,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       unsubscribe?.();
     };
   }, []);
+
+  useEffect(() => {
+    if (!user || !profile) {
+      delete axios.defaults.headers.common["x-user-role"];
+      delete axios.defaults.headers.common["x-company-id"];
+      return;
+    }
+    axios.defaults.headers.common["x-user-role"] = profile.role;
+    axios.defaults.headers.common["x-company-id"] = profile.companyId;
+  }, [user, profile]);
 
   const signOut = async () => {
     await firebaseSignOut(auth);

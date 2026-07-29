@@ -104,10 +104,10 @@ export function TicketDetails({
     isLoading,
   } = useTicketData(ticketId);
   const orgDetails = {
-    name: "Phone Medic",
-    address_line_1: "123 Tech Lane",
-    address_line_2: "Sydney, NSW 2000",
-    abn: "12 345 678 901",
+    name: "RepairSync Support",
+    address_line_1: "",
+    address_line_2: "",
+    abn: "",
   };
   const [activeTab, setActiveTab] = useState("overview");
   const [internalNote, setInternalNote] = useState("");
@@ -175,10 +175,10 @@ export function TicketDetails({
       name: "Investigating",
       text: "We're currently looking into the issue with your {device} and will update you shortly.",
     },
-    { name: "Thank You", text: "Thank you for choosing Phone Medic!" },
+    { name: "Thank You", text: "Thank you for choosing our repair team!" },
     {
       name: "Google Review",
-      text: "Hi {firstName}, thanks for choosing Phone Medic Milton! We'd really appreciate it if you could leave us a quick Google review here: https://tinyurl.com/2avrh2sx",
+      text: "Hi {firstName}, thanks for choosing our repair team. We'd really appreciate it if you could leave us a quick review.",
     },
   ]);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -615,7 +615,7 @@ export function TicketDetails({
       );
 
       const base64Data = doc.output("datauristring");
-      const subject = `Estimate #${latestEstimate.estimate_number || "Receipt"} from ${orgDetails.name || "Phone Medic"}`;
+      const subject = `Estimate #${latestEstimate.estimate_number || "Receipt"} from ${orgDetails.name || "RepairSync Support"}`;
       const content = `Hi ${customer?.firstname || customer?.fullname || ""},<br><br>Here is your estimate for your recent service request.<br><br>Please find the PDF copy attached to this email.<br><br>Kind regards,<br>${orgDetails.name || "Our Team"}`;
 
       const res = await axios.post("/api/zoho/send", {
@@ -1079,7 +1079,7 @@ export function TicketDetails({
       if (phone) {
          try {
            const { mobileMessage } = await import("../../lib/api");
-           const msg = `Hi ${customer?.firstname || customer?.fullname || 'there'}, your part (${newPartName}) has been ordered for further testing. We will advise you once the part has arrived and been tested for delivery. - Phone Medic`;
+           const msg = `Hi ${customer?.firstname || customer?.fullname || 'there'}, your part (${newPartName}) has been ordered for further testing. We will advise you once the part has arrived and been tested for delivery.`;
            await mobileMessage.sendSms(phone, msg, ticketId, ticketId);
          } catch (smsErr) {
            console.error("Failed to send part order SMS", smsErr);
@@ -1741,7 +1741,7 @@ export function TicketDetails({
                           "Provide receipt document copy.",
                           "Ask for feedback rating."
                         ],
-                        defaultSms: "Hi {customerName}, thanks for trusting PhoneMedic for your repair! We hope your device works perfectly. Share feedback here: {reviewLink}"
+                        defaultSms: "Hi {customerName}, thanks for trusting our repair team with your repair. We hope your device works perfectly. Share feedback here: {reviewLink}"
                       }
                     ].map((stage, sIdx) => {
                       const currentStatus = ticket?.status || "New";
