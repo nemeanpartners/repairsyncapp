@@ -7,14 +7,28 @@ import firebaseConfig from '../firebase-applet-config.json';
 setLogLevel('silent');
 
 const app = initializeApp(firebaseConfig);
-export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache(),
-  experimentalAutoDetectLongPolling: true,
-}, firebaseConfig.firestoreDatabaseId);
+function initializeRepairSyncFirestore() {
+  try {
+    return initializeFirestore(app, {
+      localCache: persistentLocalCache(),
+      experimentalAutoDetectLongPolling: true,
+    }, firebaseConfig.firestoreDatabaseId);
+  } catch (error) {
+    console.warn("RepairSync persistent Firestore cache unavailable; falling back to memory cache.", error);
+    try {
+      return initializeFirestore(app, {
+        experimentalAutoDetectLongPolling: true,
+      }, firebaseConfig.firestoreDatabaseId);
+    } catch {
+      return getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    }
+  }
+}
+
+export const db = initializeRepairSyncFirestore();
 
 export const auth = getAuth(app);
 export const storage = getStorage(app);
-
 
 
 
