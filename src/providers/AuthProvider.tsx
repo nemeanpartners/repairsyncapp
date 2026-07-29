@@ -267,7 +267,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             !cachedProfile ||
             (!user.isAnonymous &&
               cachedProfile.companyId === immediateCompanyId &&
-              !cachedProfile.permissions?.includes("admin"));
+              (!cachedProfile.companyName || !cachedProfile.permissions?.includes("admin")));
 
           setActiveCompanyId(cachedProfile?.companyId || immediateCompanyId);
           setUser(user);
