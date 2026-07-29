@@ -88,7 +88,12 @@ export function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (!user.isAnonymous && profile && !profile.subscriptionActive) {
+  const hasCompanySubscriptionAccess =
+    profile?.subscriptionSource === "company_invite" ||
+    profile?.billingRequired === false ||
+    Boolean(profile?.subscriptionActive);
+
+  if (!user.isAnonymous && profile && !hasCompanySubscriptionAccess) {
     return <SubscriptionRequired />;
   }
 

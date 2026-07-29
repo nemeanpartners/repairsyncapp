@@ -75,6 +75,10 @@ function inviteFromCompanyUserDocument(document) {
       companyId: { stringValue: companyId },
       role: fields.role || { stringValue: "tech" },
       hasAccess: fields.hasAccess || { booleanValue: true },
+      billingRequired: { booleanValue: false },
+      subscriptionActive: { booleanValue: true },
+      subscriptionStatus: { stringValue: "active" },
+      subscriptionSource: { stringValue: "company_invite" },
       updatedAt: { timestampValue: new Date().toISOString() },
     },
   };

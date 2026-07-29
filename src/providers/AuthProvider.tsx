@@ -156,6 +156,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         role,
         permissions,
         hasAccess: invite ? invite.data?.hasAccess !== false : defaultProfile.hasAccess,
+        ...(invite
+          ? {
+              billingRequired: false,
+              subscriptionActive: true,
+              subscriptionStatus: "active" as const,
+              subscriptionSource: "company_invite" as const,
+              subscriptionGrandfathered: false,
+            }
+          : {}),
       };
       await setDoc(
         userRef,
@@ -238,20 +247,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       role,
       permissions,
       hasAccess: shouldUseInvite ? invite?.data?.hasAccess !== false : data.hasAccess !== false,
-      billingRequired:
-        typeof data.billingRequired === "boolean"
+      billingRequired: shouldUseInvite
+        ? false
+        : typeof data.billingRequired === "boolean"
           ? data.billingRequired
           : defaultProfile.billingRequired,
-      subscriptionActive:
-        typeof data.subscriptionActive === "boolean"
+      subscriptionActive: shouldUseInvite
+        ? true
+        : typeof data.subscriptionActive === "boolean"
           ? data.subscriptionActive
           : defaultProfile.subscriptionActive,
-      subscriptionStatus: data.subscriptionStatus || defaultProfile.subscriptionStatus,
+      subscriptionStatus: shouldUseInvite ? "active" : data.subscriptionStatus || defaultProfile.subscriptionStatus,
       subscriptionPlan: data.subscriptionPlan || null,
       subscriptionInterval: data.subscriptionInterval || null,
-      subscriptionSource: data.subscriptionSource || defaultProfile.subscriptionSource,
-      subscriptionGrandfathered:
-        typeof data.subscriptionGrandfathered === "boolean"
+      subscriptionSource: shouldUseInvite ? "company_invite" : data.subscriptionSource || defaultProfile.subscriptionSource,
+      subscriptionGrandfathered: shouldUseInvite
+        ? false
+        : typeof data.subscriptionGrandfathered === "boolean"
           ? data.subscriptionGrandfathered
           : defaultProfile.subscriptionGrandfathered,
       stripeCustomerId: data.stripeCustomerId || null,
