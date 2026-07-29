@@ -15,6 +15,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
     private var didInstallGoogleSignInBridge = false
     private var hasCompletedInitialActivation = false
     private var googleSignInInProgress = false
+    private var blankWebViewRecoveryAttempts = 0
     private let googleSignInMessageHandler = "RepairSyncIOSGoogleSignIn"
     private let externalBrowserMessageHandler = "RepairSyncExternalBrowser"
     private let iapMessageHandler = "RepairSyncIOSIAP"
@@ -217,6 +218,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
         webView.evaluateJavaScript(nativeIAPShim(), completionHandler: nil)
         didInstallGoogleSignInBridge = true
         applyPendingNavigationIfNeeded()
+        validateHostedAppRendered(after: 2.0)
+        validateHostedAppRendered(after: 5.0)
         NSLog("RepairSync Google Sign-In: native bridge installed")
     }
 
@@ -419,6 +422,73 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
         request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         request.setValue("no-cache", forHTTPHeaderField: "Pragma")
         webView.load(request)
+    }
+
+    private func validateHostedAppRendered(after delay: TimeInterval) {
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            guard let webView = self.webView else {
+                return
+            }
+
+            let script = """
+            (function() {
+              var root = document.getElementById('root');
+              var text = (document.body && document.body.innerText ? document.body.innerText : '').replace(/\\s+/g, ' ').trim();
+              var rootChildren = root ? root.children.length : 0;
+              var locationHref = window.location.href;
+              return JSON.stringify({
+                href: locationHref,
+                textLength: text.length,
+                rootChildren: rootChildren,
+                readyState: document.readyState
+              });
+            })();
+            """
+
+            webView.evaluateJavaScript(script) { result, error in
+                if let error {
+                    NSLog("RepairSync iOS blank-check failed: \(error.localizedDescription)")
+                    self.forceLoadHostedApp(reason: "blank-check-error")
+                    return
+                }
+
+                guard let json = result as? String,
+                      let data = json.data(using: .utf8),
+                      let payload = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+                    self.forceLoadHostedApp(reason: "blank-check-invalid-result")
+                    return
+                }
+
+                let href = payload["href"] as? String ?? ""
+                let textLength = payload["textLength"] as? Int ?? 0
+                let rootChildren = payload["rootChildren"] as? Int ?? 0
+                let isHostedRepairSync = href.hasPrefix(self.hostedAppBaseURL)
+                let looksBlank = textLength < 8 && rootChildren == 0
+
+                if !isHostedRepairSync || looksBlank {
+                    NSLog("RepairSync iOS detected blank WebView. href=\(href), textLength=\(textLength), rootChildren=\(rootChildren)")
+                    self.forceLoadHostedApp(reason: looksBlank ? "blank-dom" : "wrong-url")
+                }
+            }
+        }
+    }
+
+    private func forceLoadHostedApp(reason: String) {
+        guard blankWebViewRecoveryAttempts < 2 else {
+            NSLog("RepairSync iOS blank recovery skipped after maximum attempts. reason=\(reason)")
+            return
+        }
+
+        blankWebViewRecoveryAttempts += 1
+        let cacheBust = Int(Date().timeIntervalSince1970)
+        guard let url = URL(string: "\(hostedAppBaseURL)/?iosWrapperReload=\(cacheBust)") else {
+            return
+        }
+
+        var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 30)
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        webView?.load(request)
     }
 
     private func externalBrowserShim() -> String {
