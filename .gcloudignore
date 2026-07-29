@@ -1,0 +1,17 @@
+.git
+.gitignore
+.DS_Store
+node_modules/
+dist/
+bun.lock
+coverage/
+*.log
+*.tsbuildinfo
+.env
+.env.*
+!.env.example
+AuthKey_*.p8
+**/AuthKey_*.p8
+ios/AuthKey_*.p8
+android/
+ios/
