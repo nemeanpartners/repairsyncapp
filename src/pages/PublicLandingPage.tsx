@@ -204,7 +204,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           <a href="#workflow" className="hover:text-zinc-100 transition-colors">Command Center</a>
           <a href="#pricing" className="hover:text-zinc-100 transition-colors">Pricing Policies</a>
           <a href="#faq" className="hover:text-zinc-100 transition-colors">FAQ Specs</a>
-          <a href="#privacy-policy" className="hover:text-zinc-100 transition-colors">Privacy Policy</a>
+          <a href="/privacy-policy" className="hover:text-zinc-100 transition-colors">Privacy Policy</a>
         </nav>
 
         {/* Action Buttons & Mobile Menu */}
@@ -255,7 +255,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
               <a href="#technician" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-zinc-100 py-1 transition-colors">TechnicianOS Mode</a>
               <a href="#workflow" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-zinc-100 py-1 transition-colors">Command Center</a>
               <a href="#pricing" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-zinc-100 py-1 transition-colors">Pricing Packages</a>
-              <a href="#privacy-policy" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-zinc-100 py-1 transition-colors">Privacy Policy</a>
+              <a href="/privacy-policy" onClick={() => setIsMobileMenuOpen(false)} className="hover:text-zinc-100 py-1 transition-colors">Privacy Policy</a>
             </div>
             <div className="h-px bg-zinc-800" />
             <div className="flex flex-col gap-3 font-sans">
@@ -1462,9 +1462,9 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           <div className="space-y-3.5">
             <h5 className="font-extrabold text-zinc-300 uppercase tracking-wide text-[9px]">Legal Specs</h5>
             <ul className="space-y-2.5 font-semibold">
-              <li><a href="#privacy-policy" className="text-zinc-400 hover:text-zinc-200 transition-colors">Privacy Policy</a></li>
+              <li><a href="/privacy-policy" className="text-zinc-400 hover:text-zinc-200 transition-colors">Privacy Policy</a></li>
               <li><span className="text-zinc-600">Compliance Audits</span></li>
-              <li><span className="text-zinc-600">Terms of Use</span></li>
+              <li><a href="/terms" className="text-zinc-400 hover:text-zinc-200 transition-colors">Terms of Use</a></li>
             </ul>
           </div>
 
