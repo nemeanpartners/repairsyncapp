@@ -172,6 +172,14 @@ async function startServer() {
       </header>
       ${body}
     </main>
+    <script>
+      document.querySelectorAll('a[href="/"]').forEach((link) => {
+        link.addEventListener('click', (event) => {
+          event.preventDefault();
+          window.location.replace('/?refresh=' + Date.now());
+        });
+      });
+    </script>
   </body>
 </html>`;
   }
@@ -283,8 +291,29 @@ async function startServer() {
     app.use(vite.middlewares);
   } else {
     const distPath = path.join(process.cwd(), 'dist');
-    app.use(express.static(distPath));
-    app.get('*', (req, res) => res.sendFile(path.join(distPath, 'index.html')));
+    const assetsPath = path.join(distPath, 'assets');
+    app.use(
+      '/assets',
+      express.static(assetsPath, {
+        fallthrough: false,
+        immutable: true,
+        maxAge: '1y',
+      }),
+    );
+    app.use(
+      express.static(distPath, {
+        index: false,
+        setHeaders: (res, filePath) => {
+          if (filePath.endsWith('.html')) {
+            res.setHeader('Cache-Control', 'no-store, max-age=0');
+          }
+        },
+      }),
+    );
+    app.get('*', (req, res) => {
+      res.setHeader('Cache-Control', 'no-store, max-age=0');
+      res.sendFile(path.join(distPath, 'index.html'));
+    });
   }
 
   const server = app.listen(PORT, '0.0.0.0', async () => {
