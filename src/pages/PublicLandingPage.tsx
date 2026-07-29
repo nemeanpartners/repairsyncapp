@@ -166,9 +166,10 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           "@context": "https://schema.org",
           "@type": "SoftwareApplication",
           "name": "RepairSync",
+          "url": "https://repairsync.qld.one/",
           "applicationCategory": "BusinessApplication",
           "operatingSystem": "All",
-          "description": "The Realtime Repair Operating System. Accelerate technicians, streamline diagnostic SLA triggers, automate customer alerts, and run enterprise workflow boards.",
+          "description": "RepairSync is a repair business management app for repair tickets, customer communication, invoicing, quotes, inventory, technician workflows, and repair shop operations.",
           "offers": {
             "@type": "Offer",
             "price": "49.00",
@@ -310,9 +311,9 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           transition={{ duration: 0.7, delay: 0.15 }}
           className="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] lg:leading-[1.05]"
         >
-          The Realtime <br />
+          RepairSync <br />
           <span className="bg-gradient-to-r from-purple-400 via-indigo-300 to-indigo-500 bg-clip-text text-transparent">
-            Repair Operating System
+            Repair Business Management App
           </span>
         </motion.h1>
 
@@ -323,7 +324,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           transition={{ duration: 0.7, delay: 0.25 }}
           className="mt-6 text-sm sm:text-base lg:text-lg text-zinc-400 max-w-2xl leading-relaxed"
         >
-          Synthesizing mobile TechnicianOS, intelligent AI triage pipelines, responsive SLA breach triggers, and automated RCS customer communications in a singular robust architecture. Built for scale.
+          RepairSync helps repair businesses manage repair tickets, customer communication, invoicing, quotes, inventory, technician workflows, and automated repair shop operations from one secure app.
         </motion.p>
 
         {/* Responsive Hero CTA */}
