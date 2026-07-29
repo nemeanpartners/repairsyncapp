@@ -9,6 +9,21 @@ import { companyCollection, companyDoc } from "../lib/companyFirestore";
 import { useAuth } from "../providers/AuthProvider";
 import axios from 'axios';
 
+const SETTINGS_PERMISSION_OPTIONS = [
+  { key: "settings:general", label: "Company" },
+  { key: "settings:team", label: "Team" },
+  { key: "settings:catalog", label: "Catalog" },
+  { key: "settings:notifications", label: "Notifications" },
+  { key: "settings:automations", label: "Automations" },
+  { key: "settings:chat_templates", label: "Templates" },
+  { key: "settings:devices", label: "Devices" },
+  { key: "settings:appearance", label: "Appearance" },
+  { key: "settings:integrations", label: "Integrations" },
+  { key: "settings:ai", label: "AI" },
+  { key: "settings:database", label: "Data" },
+  { key: "settings:security", label: "Security" },
+];
+
 interface TeamMember {
   id: string;
   email: string;
@@ -80,6 +95,45 @@ export const TeamMembersSettings: React.FC = () => {
     } catch (error) {
       console.error('Error updating display name:', error);
       toast.error('Failed to update display name');
+    }
+  };
+
+  const handleTogglePermission = async (member: TeamMember, permission: string) => {
+    const currentPermissions = new Set(member.permissions || []);
+    if (currentPermissions.has(permission)) {
+      currentPermissions.delete(permission);
+    } else {
+      currentPermissions.add(permission);
+    }
+    const permissions = Array.from(currentPermissions);
+
+    try {
+      setMembers((current) =>
+        current.map((candidate) =>
+          candidate.email === member.email ? { ...candidate, permissions } : candidate,
+        ),
+      );
+      await setDoc(companyDoc('users', member.id), {
+        permissions,
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      if (member.uid) {
+        await Promise.all([
+          setDoc(companyDoc('users', member.uid), {
+            permissions,
+            updatedAt: serverTimestamp(),
+          }, { merge: true }),
+          setDoc(doc(db, 'users', member.uid), {
+            permissions,
+            updatedAt: serverTimestamp(),
+          }, { merge: true }),
+        ]);
+      }
+      toast.success("Permissions updated");
+    } catch (error) {
+      console.error('Error updating permissions:', error);
+      toast.error('Failed to update permissions');
+      fetchMembers();
     }
   };
 
@@ -262,44 +316,76 @@ export const TeamMembersSettings: React.FC = () => {
             <p className="text-sm text-muted-foreground italic">No team members added yet.</p>
           ) : (
             <div className="space-y-2">
-              {members.map((member) => (
-                <div key={member.email} className="flex items-center justify-between p-3 bg-white/40 border border-border/30 rounded-xl group hover:border-primary/20 transition-all">
-                  <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
-                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
-                       {(member.displayName ? member.displayName.charAt(0) : member.email.charAt(0)).toUpperCase()}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <Input
-                        className="h-8 -ml-2.5 px-2.5 bg-transparent border-transparent hover:bg-white/40 focus:bg-white hover:border-border/50 focus:border-primary/30 shadow-none font-bold text-sm transition-all"
-                        placeholder="Set Display Name..."
-                        value={member.displayName || ''}
-                        onChange={(e) => handleUpdateDisplayNameLocal(member.id, e.target.value)}
-                        onBlur={() => handleSaveDisplayName(member.id, member.displayName || '')}
-                        disabled={isLoading}
-                      />
-                      <div className="flex items-center gap-2 mt-0.5">
-                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{member.role}</p>
-                        <span className="w-1 h-1 rounded-full bg-border/50" />
-                        {member.authMethod === "email_password" ? <KeyRound className="h-3 w-3 text-zinc-400" /> : null}
-                        <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{member.authMethod || "google"}</p>
-                        <span className="w-1 h-1 rounded-full bg-border/50" />
-                        <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+              {members.map((member) => {
+                const isCurrentAdmin = member.email === auth.currentUser?.email?.toLowerCase() || member.role === "admin";
+                return (
+                <div key={member.email} className="space-y-3 p-3 bg-white/40 border border-border/30 rounded-xl group hover:border-primary/20 transition-all">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 flex-1 min-w-0 pr-4">
+                      <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary font-bold shrink-0">
+                         {(member.displayName ? member.displayName.charAt(0) : member.email.charAt(0)).toUpperCase()}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <Input
+                          className="h-8 -ml-2.5 px-2.5 bg-transparent border-transparent hover:bg-white/40 focus:bg-white hover:border-border/50 focus:border-primary/30 shadow-none font-bold text-sm transition-all"
+                          placeholder="Set Display Name..."
+                          value={member.displayName || ''}
+                          onChange={(e) => handleUpdateDisplayNameLocal(member.id, e.target.value)}
+                          onBlur={() => handleSaveDisplayName(member.id, member.displayName || '')}
+                          disabled={isLoading}
+                        />
+                        <div className="flex items-center gap-2 mt-0.5">
+                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{member.role}</p>
+                          <span className="w-1 h-1 rounded-full bg-border/50" />
+                          {member.authMethod === "email_password" ? <KeyRound className="h-3 w-3 text-zinc-400" /> : null}
+                          <p className="text-xs text-muted-foreground uppercase font-bold tracking-wider">{member.authMethod || "google"}</p>
+                          <span className="w-1 h-1 rounded-full bg-border/50" />
+                          <p className="text-xs text-muted-foreground truncate">{member.email}</p>
+                        </div>
                       </div>
                     </div>
+                    {!isCurrentAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={() => handleRemoveMember(member)}
+                        disabled={isLoading}
+                      >
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
-                  {member.email !== auth.currentUser?.email?.toLowerCase() && member.role !== "admin" && (
-                    <Button 
-                      variant="ghost" 
-                      size="icon"
-                      className="text-red-500 hover:bg-red-50 hover:text-red-600 rounded-xl h-8 w-8 opacity-0 group-hover:opacity-100 transition-opacity"
-                      onClick={() => handleRemoveMember(member)}
-                      disabled={isLoading}
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
+                  {member.role !== "admin" ? (
+                    <div className="rounded-xl border border-zinc-200/70 bg-white/50 p-3">
+                      <div className="mb-2 text-xs font-bold uppercase tracking-wider text-zinc-500">
+                        Optional settings access
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        {SETTINGS_PERMISSION_OPTIONS.map((option) => {
+                          const checked = Boolean(member.permissions?.includes(option.key));
+                          return (
+                            <button
+                              key={option.key}
+                              type="button"
+                              disabled={isLoading}
+                              onClick={() => handleTogglePermission(member, option.key)}
+                              className={`rounded-full border px-3 py-1.5 text-xs font-bold transition-colors ${
+                                checked
+                                  ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                                  : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-300"
+                              }`}
+                            >
+                              {option.label}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : null}
                 </div>
-              ))}
+              );
+              })}
             </div>
           )}
         </div>

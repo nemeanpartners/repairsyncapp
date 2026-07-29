@@ -14,8 +14,9 @@ import { toast } from 'sonner';
 
 export function SecuritySettingsForm() {
   const { settings, updateSettings } = useSettings();
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const isAdmin = profile?.role === "admin" || profile?.permissions?.includes("admin");
   
   const { control, handleSubmit, reset, formState: { isSubmitting, isDirty } } = useForm<SecuritySettings>({
     resolver: zodResolver(SecuritySettingsSchema),
@@ -94,14 +95,16 @@ export function SecuritySettingsForm() {
         </div>
       </div>
 
-      <div className="bg-white p-6 rounded-2xl border border-red-200 shadow-sm space-y-4">
-        <h3 className="text-lg font-bold text-red-600 pb-2">Danger Zone</h3>
-        <p className="text-sm text-zinc-500 pb-4">Request to permanently delete your account and remove your personal information.</p>
-        <Button type="button" onClick={() => setIsDeleteModalOpen(true)} variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
-          <Trash2 className="w-4 h-4 mr-2" />
-          Request Account Deletion
-        </Button>
-      </div>
+      {isAdmin ? (
+        <div className="bg-white p-6 rounded-2xl border border-red-200 shadow-sm space-y-4">
+          <h3 className="text-lg font-bold text-red-600 pb-2">Danger Zone</h3>
+          <p className="text-sm text-zinc-500 pb-4">Request to permanently delete your account and remove your personal information.</p>
+          <Button type="button" onClick={() => setIsDeleteModalOpen(true)} variant="outline" className="border-red-200 text-red-600 hover:bg-red-50">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Request Account Deletion
+          </Button>
+        </div>
+      ) : null}
 
       {isDirty && (
         <div className="sticky bottom-4 z-50 bg-white border border-zinc-200 shadow-lg p-4 rounded-xl flex items-center justify-between animate-in slide-in-from-bottom-5">

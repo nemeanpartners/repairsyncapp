@@ -11,8 +11,10 @@ import {
   ChevronLeft,
   Workflow,
   MessageSquareDashed,
+  Lock,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 import { GeneralSettingsForm } from "./components/GeneralSettingsForm";
 import { NotificationSettingsForm } from "./components/NotificationSettingsForm";
@@ -129,42 +131,35 @@ export function SettingsView() {
     },
   ];
 
-  const visibleTabs = isAdmin ? SETTING_TABS : SETTING_TABS.filter((tab) => !tab.adminOnly);
-
   const activeTabContext = SETTING_TABS.find((t) => t.id === activeTab);
 
-  if (!isAdmin) {
-    return (
-      <div className="flex h-full w-full flex-col bg-white">
-        <div className="border-b border-zinc-200 px-4 py-5 md:px-8">
-          <h1 className="text-xl font-bold tracking-tight text-zinc-900">Team Access</h1>
-          <p className="mt-1 text-sm text-zinc-500">
-            Your account is managed by your company admin.
-          </p>
-        </div>
-        <div className="flex-1 overflow-y-auto bg-zinc-50/50 p-4 md:p-8">
-          <div className="max-w-2xl rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
-            <h2 className="text-lg font-bold text-zinc-900">Day-to-day workspace access</h2>
-            <p className="mt-3 text-sm leading-6 text-zinc-600">
-              You can work with the company dashboard, tickets, customers,
-              messages, tasks, invoices, inventory, and repair workflows your
-              admin has enabled for you. Settings, billing, team management,
-              integrations, and account deletion are controlled by your company
-              admin.
-            </p>
-            <div className="mt-5 rounded-xl bg-zinc-50 p-4 text-sm text-zinc-600">
-              Signed in as <span className="font-semibold text-zinc-900">{profile?.role || "team member"}</span>
-              {profile?.companyName ? (
-                <> for <span className="font-semibold text-zinc-900">{profile.companyName}</span></>
-              ) : null}
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  const canAccessTab = (tabId: string) =>
+    isAdmin || Boolean(profile?.permissions?.includes(`settings:${tabId}`));
+
+  const openTab = (tabId: string) => {
+    if (!canAccessTab(tabId)) {
+      toast.info("Ask your company admin to grant access to this settings area.");
+      return;
+    }
+    setActiveTab(tabId);
+  };
 
   const renderActiveTab = () => {
+    if (activeTab && !canAccessTab(activeTab)) {
+      return (
+        <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-zinc-100 text-zinc-500">
+            <Lock className="h-5 w-5" />
+          </div>
+          <h2 className="text-lg font-bold text-zinc-900">Admin permission required</h2>
+          <p className="mt-2 text-sm leading-6 text-zinc-600">
+            You can view this settings area in the menu, but your company admin
+            needs to grant access before you can open or change it.
+          </p>
+        </div>
+      );
+    }
+
     switch (activeTab) {
       case "subscription":
         return <SubscriptionSettingsForm />;
@@ -233,18 +228,22 @@ export function SettingsView() {
             <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 px-2">
               Settings Menu
             </div>
-            {visibleTabs.map((tab) => (
+            {SETTING_TABS.map((tab) => {
+              const locked = !canAccessTab(tab.id);
+              return (
               <button
                 key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${activeTab === tab.id ? "bg-zinc-100 text-zinc-900" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}
+                onClick={() => openTab(tab.id)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors text-left ${activeTab === tab.id ? "bg-zinc-100 text-zinc-900" : locked ? "text-zinc-400 hover:bg-zinc-50" : "text-zinc-600 hover:bg-zinc-50 hover:text-zinc-900"}`}
               >
                 <tab.icon
-                  className={`w-4 h-4 ${activeTab === tab.id ? "text-zinc-900" : "text-zinc-500"}`}
+                  className={`w-4 h-4 ${activeTab === tab.id ? "text-zinc-900" : locked ? "text-zinc-300" : "text-zinc-500"}`}
                 />
-                {tab.label}
+                <span className="flex-1">{tab.label}</span>
+                {locked ? <Lock className="h-3.5 w-3.5 text-zinc-300" /> : null}
               </button>
-            ))}
+              );
+            })}
           </div>
         </div>
 
@@ -285,19 +284,25 @@ export function SettingsView() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 align-top">
-                {visibleTabs.map((tab) => (
+                {SETTING_TABS.map((tab) => {
+                  const locked = !canAccessTab(tab.id);
+                  return (
                   <div
                     key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className="bg-white border border-zinc-200 p-5 rounded-2xl shadow-sm hover:shadow-md transition-all cursor-pointer hover:border-zinc-300 group"
+                    onClick={() => openTab(tab.id)}
+                    className={`bg-white border p-5 rounded-2xl shadow-sm transition-all group ${locked ? "border-zinc-200 opacity-70 cursor-not-allowed" : "border-zinc-200 hover:shadow-md cursor-pointer hover:border-zinc-300"}`}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-zinc-100 flex items-center justify-center text-zinc-600 mb-4 group-hover:bg-zinc-900 group-hover:text-white transition-colors">
+                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center mb-4 transition-colors ${locked ? "bg-zinc-100 text-zinc-400" : "bg-zinc-100 text-zinc-600 group-hover:bg-zinc-900 group-hover:text-white"}`}>
                       <tab.icon className="w-5 h-5" />
                     </div>
-                    <h3 className="font-semibold text-zinc-900">{tab.label}</h3>
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="font-semibold text-zinc-900">{tab.label}</h3>
+                      {locked ? <Lock className="h-4 w-4 text-zinc-300" /> : null}
+                    </div>
                     <p className="text-sm text-zinc-500 mt-1">{tab.desc}</p>
                   </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           ) : (

@@ -142,12 +142,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const data = snapshot.data() || {};
     const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
-    const companyId = data.companyId || data.company_id || data.organizationId || fallbackCompanyId;
-    const companyName = data.companyName || data.businessName || null;
-    const role = data.role === "admin" ? "admin" : data.role === "tech" ? "tech" : "member";
-    const permissions = Array.isArray(data.permissions)
-      ? data.permissions
-      : role === "admin"
+    const invite = await findInviteForUser(currentUser).catch((error) => {
+      console.warn("Failed to check company invite", error);
+      return null;
+    });
+    const invitedCompanyId = invite?.companyId;
+    const shouldUseInvite =
+      Boolean(invite) &&
+      (!data.companyId || data.companyId === fallbackCompanyId || data.companyId !== invitedCompanyId);
+    const companyId = shouldUseInvite
+      ? invitedCompanyId!
+      : data.companyId || data.company_id || data.organizationId || fallbackCompanyId;
+    const companyName = shouldUseInvite
+      ? invite?.data?.companyName || data.companyName || data.businessName || null
+      : data.companyName || data.businessName || null;
+    const role = shouldUseInvite
+      ? invite?.data?.role === "admin"
+        ? "admin"
+        : "tech"
+      : data.role === "admin"
+        ? "admin"
+        : data.role === "tech"
+          ? "tech"
+          : "member";
+    const permissions = shouldUseInvite && Array.isArray(invite?.data?.permissions)
+      ? invite!.data.permissions
+      : Array.isArray(data.permissions)
+        ? data.permissions
+        : role === "admin"
         ? ["admin"]
         : ["tickets", "customers", "messages", "tasks"];
     const normalizedProfile: UserBillingProfile = {
@@ -155,7 +177,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       companyName,
       role,
       permissions,
-      hasAccess: data.hasAccess !== false,
+      hasAccess: shouldUseInvite ? invite?.data?.hasAccess !== false : data.hasAccess !== false,
       billingRequired:
         typeof data.billingRequired === "boolean"
           ? data.billingRequired
@@ -184,7 +206,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.subscriptionStatus === undefined ||
       data.subscriptionGrandfathered === undefined ||
       data.companyId === undefined ||
-      data.role === undefined;
+      data.role === undefined ||
+      shouldUseInvite;
 
     if (needsBackfill) {
       await setDoc(
@@ -208,6 +231,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }, { merge: true }).catch((error) => {
       console.warn("Failed to ensure company document", error);
     });
+    await setDoc(doc(db, "companies", companyId, "users", currentUser.uid), {
+      uid: currentUser.uid,
+      email: currentUser.email?.trim().toLowerCase() || data.email || null,
+      displayName: currentUser.displayName || data.displayName || invite?.data?.displayName || null,
+      role,
+      permissions,
+      hasAccess: normalizedProfile.hasAccess,
+      companyId,
+      companyName,
+      linkedAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    }, { merge: true }).catch((error) => {
+      console.warn("Failed to link company user", error);
+    });
     setProfile(normalizedProfile);
     cacheProfile(currentUser.uid, normalizedProfile);
   };
@@ -226,11 +263,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) {
           const immediateCompanyId = user.isAnonymous ? "demo" : getFallbackCompanyId(user);
           const cachedProfile = getCachedProfile(user.uid);
+          const shouldWaitForProfile =
+            !cachedProfile ||
+            (!user.isAnonymous &&
+              cachedProfile.companyId === immediateCompanyId &&
+              !cachedProfile.permissions?.includes("admin"));
 
           setActiveCompanyId(cachedProfile?.companyId || immediateCompanyId);
           setUser(user);
           setProfile(cachedProfile);
-          setLoading(false);
+          setLoading(shouldWaitForProfile);
 
           axios.defaults.headers.common['x-user-id'] = user.uid;
           if (user.email) {
@@ -243,9 +285,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             delete axios.defaults.headers.common['x-is-guest'];
           }
-          void syncUserProfile(user).catch((error) => {
+          try {
+            await syncUserProfile(user);
+          } catch (error) {
             console.error("Failed to sync user billing profile", error);
-          });
+          } finally {
+            if (!cancelled) {
+              setLoading(false);
+            }
+          }
         } else {
           setUser(null);
           setProfile(null);
