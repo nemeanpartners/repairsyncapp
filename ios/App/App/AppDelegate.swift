@@ -20,7 +20,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
     private let iapMessageHandler = "RepairSyncIOSIAP"
     private let iosWrapperClassName = "repairsync-ios-wrapper"
     private let appDeepLinkScheme = "repairsync"
-    private let hostedAppBaseURL = "https://repairsync.ai.studio"
+    private let hostedAppBaseURL = "https://repairsync.qld.one"
     private var pendingAppNavigationURL: URL?
     private let appleIAPProductIDs: Set<String> = [
         "com.repairsyncios.sms.starter.monthly",

@@ -1,6 +1,6 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
-const hostedServerUrl = 'https://repairsync.ai.studio';
+const hostedServerUrl = 'https://repairsync.qld.one';
 const allowNavigationHosts = Array.from(
   new Set(
     [hostedServerUrl]
@@ -14,6 +14,8 @@ const allowNavigationHosts = Array.from(
       .filter((value): value is string => Boolean(value))
       .concat([
         'gen-lang-client-0477801246.firebaseapp.com',
+        'repairsync.qld.one',
+        'www.repairsync.qld.one',
         'repairsync.ai.studio',
         'accounts.google.com',
         'www.google.com',
