@@ -25,7 +25,7 @@ const allowNavigationHosts = Array.from(
 );
 
 const config: CapacitorConfig = {
-  appId: 'com.repairsyncios.sms',
+  appId: 'com.nemeanpartnersptyltd.repairsyncapp',
   appName: 'RepairSync',
   webDir: 'capacitor-web',
   server: {

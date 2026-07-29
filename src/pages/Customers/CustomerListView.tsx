@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { Users, Search, Plus, Phone, Mail, Loader2, ArrowLeft, ArrowUpDown, Filter } from "lucide-react";
+import { Users, Search, Plus, Phone, Mail, Loader2, Filter } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useCustomerSearch } from "../../hooks/customers/useCustomerSearch";
 import { NewCustomerModal } from "../../features/customers/components/NewCustomerModal";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { getCountFromServer, collection } from "firebase/firestore";
-import { db } from "../../firebase";
+import { getCountFromServer } from "firebase/firestore";
 import { companyCollection } from "../../lib/companyFirestore";
 
 export function CustomerListView() {

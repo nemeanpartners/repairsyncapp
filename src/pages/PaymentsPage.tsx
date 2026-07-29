@@ -50,18 +50,18 @@ const APPLE_IAP_PRODUCT_IDS: Record<
   starter: {
     monthly:
       import.meta.env.VITE_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID ||
-      "com.repairsyncios.sms.starter.monthly",
+      "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly",
     yearly:
       import.meta.env.VITE_APPLE_IAP_STARTER_YEARLY_PRODUCT_ID ||
-      "com.repairsyncios.sms.starter.yearly",
+      "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly",
   },
   pro: {
     monthly:
       import.meta.env.VITE_APPLE_IAP_PRO_MONTHLY_PRODUCT_ID ||
-      "com.repairsyncios.sms.pro.monthly",
+      "com.nemeanpartnersptyltd.repairsyncapp.pro.monthly",
     yearly:
       import.meta.env.VITE_APPLE_IAP_PRO_YEARLY_PRODUCT_ID ||
-      "com.repairsyncios.sms.pro.yearly",
+      "com.nemeanpartnersptyltd.repairsyncapp.pro.yearly",
   },
 };
 

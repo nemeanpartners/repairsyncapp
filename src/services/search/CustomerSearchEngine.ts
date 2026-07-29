@@ -2,10 +2,9 @@ import { SearchCacheService } from "./SearchCacheService";
 import { SearchWorkerService } from "./SearchWorkerService";
 import { SearchAnalyticsService } from "./SearchAnalyticsService";
 import { CostAnalyticsEngine } from "../CostAnalyticsEngine";
-import { db } from "../../firebase";
-import { collection, query as fsQuery, where, limit as fsLimit, getDocs } from "firebase/firestore";
+import { query as fsQuery, where, limit as fsLimit, getDocs } from "firebase/firestore";
 import axios from "axios";
-import { companyCollection } from "../../lib/companyFirestore";
+import { companyCollection, getActiveCompanyId } from "../../lib/companyFirestore";
 
 export interface NormalizedCustomer {
   customerId: string;
@@ -131,18 +130,46 @@ export class CustomerSearchEngine {
   private static memoryCache = new Map<string, NormalizedCustomer[]>();
   private static inMemoryPool: NormalizedCustomer[] = [];
   private static isHydrated = false;
+  private static currentPoolCompanyId: string | null = null;
 
   /**
    * Proactively hydrates local memories with IndexedDB contacts cache
    */
   static async prepool(): Promise<NormalizedCustomer[]> {
-    if (this.isHydrated && this.inMemoryPool.length > 0) {
+    const companyId = getActiveCompanyId();
+    if (this.currentPoolCompanyId !== companyId) {
+      this.inMemoryPool = [];
+      this.memoryCache.clear();
+      this.isHydrated = false;
+      this.currentPoolCompanyId = companyId;
+    }
+
+    if (this.isHydrated) {
       return this.inMemoryPool;
     }
     try {
+      const snapshot = await getDocs(fsQuery(companyCollection("crm_customers"), fsLimit(200)));
+      const firestoreCustomers = snapshot.docs.map((doc) => ({
+        ...normalizeCustomer({ id: doc.id, ...doc.data() }),
+        __companyId: companyId,
+      }));
+      this.inMemoryPool = firestoreCustomers;
+      this.isHydrated = true;
+      if (firestoreCustomers.length > 0) {
+        SearchCacheService.putMany("contacts", firestoreCustomers).catch((error) => {
+          console.warn("[CustomerSearchEngine] Failed to refresh contacts cache:", error);
+        });
+      }
+      return this.inMemoryPool;
+    } catch (err) {
+      console.warn("[CustomerSearchEngine] Firestore prepool failed, falling back to IndexedDB:", err);
+    }
+
+    try {
       const cached = await SearchCacheService.getAll("contacts");
-      if (cached && cached.length > 0) {
-        this.inMemoryPool = cached.map(normalizeCustomer);
+      const companyCached = cached.filter((item: any) => item.__companyId === companyId);
+      if (companyCached.length > 0) {
+        this.inMemoryPool = companyCached.map(normalizeCustomer);
         this.isHydrated = true;
       }
     } catch (err) {
@@ -155,7 +182,10 @@ export class CustomerSearchEngine {
    * Updates a single contact in cache & pool
    */
   static updateLocalContact(customer: any) {
-    const norm = normalizeCustomer(customer);
+    const norm = {
+      ...normalizeCustomer(customer),
+      __companyId: getActiveCompanyId(),
+    };
     const existingIndex = this.inMemoryPool.findIndex(c => c.customerId === norm.customerId);
     if (existingIndex > -1) {
       this.inMemoryPool[existingIndex] = norm;

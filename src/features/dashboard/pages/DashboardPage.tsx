@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { query, limit, getDocs, orderBy, where, QueryConstraint } from "firebase/firestore";
+import { query, limit, getDocs, QueryConstraint } from "firebase/firestore";
 import { Ticket, Users, Package, MessageSquare, ArrowRight, Activity, CircleDollarSign, LayoutDashboard, AlertCircle, ArrowLeft, Send, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -64,18 +64,24 @@ function AdminDashboardView() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    let active = true;
     const fetchDashboardData = async () => {
       try {
-        // Quick stats
-        const ticketsSnap = await safeGetCollection("crm_tickets", [orderBy("updated_at", "desc"), limit(1000)]);
-        const oldTicketsSnap = await safeGetCollection("tickets", [orderBy("updated_at", "desc"), limit(1000)]);
-        const msgsSnap = await safeGetCollection("conversations", [where("isUnread", "==", true), limit(50)]);
-        const custSnap = await safeGetCollection("crm_customers", [limit(50)]);
-        
-        const recentTicketsSnap = await safeGetCollection("crm_tickets", [orderBy("updated_at", "desc"), limit(5)]);
-        const convSnap = await safeGetCollection("conversations", [orderBy("updatedAt", "desc"), limit(100)]);
-        const tasksSnap = await safeGetCollection("tasks", [limit(100)]);
-        const partsSnap = await safeGetCollection("parts_orders", [orderBy("createdAt", "desc"), limit(5)]);
+        const [
+          ticketsSnap,
+          oldTicketsSnap,
+          convSnap,
+          custSnap,
+          tasksSnap,
+          partsSnap,
+        ] = await Promise.all([
+          safeGetCollection("crm_tickets", [limit(1000)]),
+          safeGetCollection("tickets", [limit(1000)]),
+          safeGetCollection("conversations", [limit(100)]),
+          safeGetCollection("crm_customers", [limit(1000)]),
+          safeGetCollection("tasks", [limit(100)]),
+          safeGetCollection("parts_orders", [limit(100)]),
+        ]);
 
         const crmOpen = ticketsSnap.docs.filter(d => {
           const s = String(d.data().status || "New").toLowerCase();
@@ -89,8 +95,11 @@ function AdminDashboardView() {
         
         const openTickets = crmOpen + oldOpen;
 
-        const allConvs = convSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+        const allConvs = convSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a: any, b: any) => toMillis(b.updatedAt || b.updated_at) - toMillis(a.updatedAt || a.updated_at));
         const recentSms = allConvs.slice(0, 5);
+        const unreadMessages = allConvs.filter((c: any) => c.isUnread && !c.isArchived).length;
         const urgentSms = allConvs.filter((c: any) => c.isUrgent && !c.isArchived).slice(0, 5);
         const yourTurnSms = allConvs.filter((c: any) => c.isYourTurn && !c.isArchived).slice(0, 5);
         const yourTurnCount = allConvs.filter((c: any) => c.isYourTurn && !c.isArchived).length;
@@ -103,18 +112,28 @@ function AdminDashboardView() {
             return dateA - dateB;
           });
         const recentTasks = allTasks.slice(0, 5);
+        const recentTickets = ticketsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a: any, b: any) => toMillis(b.updated_at || b.updatedAt) - toMillis(a.updated_at || a.updatedAt))
+          .slice(0, 5);
+        const recentParts = partsSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .sort((a: any, b: any) => toMillis(b.createdAt || b.created_at) - toMillis(a.createdAt || a.created_at))
+          .slice(0, 5);
+
+        if (!active) return;
 
         setStats({
           openTickets,
-          newMessages: msgsSnap.size,
+          newMessages: unreadMessages,
           customers: custSnap.size,
           yourTurnCount,
-          recentTickets: recentTicketsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+          recentTickets,
           recentSms,
           urgentSms,
           yourTurnSms,
           recentTasks,
-          recentParts: partsSnap.docs.map(d => ({ id: d.id, ...d.data() })),
+          recentParts,
         });
       } catch (e) {
         console.error("Error loading dashboard", e);
@@ -124,6 +143,9 @@ function AdminDashboardView() {
     };
 
     fetchDashboardData();
+    return () => {
+      active = false;
+    };
   }, []);
 
   if (isLoading) {

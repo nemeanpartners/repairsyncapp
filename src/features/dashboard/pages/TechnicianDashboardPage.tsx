@@ -141,13 +141,16 @@ export function TechnicianDashboard() {
     
     const q = query(
       companyCollection("crm_tickets"),
-      where("tech_id", "==", user.uid),
-      orderBy("updated_at", "desc"),
-      limit(50)
+      limit(100)
     );
 
     const unsub = onSnapshot(q, (snap) => {
-      setAssignedTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+      const tickets = snap.docs
+        .map(d => ({ id: d.id, ...d.data() }))
+        .filter((ticket: any) => !ticket.tech_id || ticket.tech_id === user.uid || ticket.demoAccount)
+        .sort((a: any, b: any) => toMillis(b.updated_at || b.updatedAt) - toMillis(a.updated_at || a.updatedAt))
+        .slice(0, 50);
+      setAssignedTickets(tickets);
       setIsLoading(false);
     }, async (err) => {
       console.error("Failed to load assigned tickets:", err);
