@@ -2,5 +2,23 @@
   "firestore": {
     "database": "ai-studio-413d30ba-2c79-4d8a-a15e-a39e0709c787",
     "rules": "firestore.rules"
+  },
+  "hosting": {
+    "site": "gen-lang-client-0477801246",
+    "public": "dist",
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
+    "rewrites": [
+      {
+        "source": "**",
+        "run": {
+          "serviceId": "repairsync-distributed-app",
+          "region": "us-west1"
+        }
+      }
+    ]
   }
 }
