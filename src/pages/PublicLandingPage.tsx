@@ -36,7 +36,6 @@ import {
   Globe, 
   Check, 
   HelpCircle, 
-  ChevronRight, 
   BookOpen, 
   Menu, 
   X, 
@@ -46,7 +45,7 @@ import {
   Send, 
   User, 
   Phone, 
-  AlertTriangle 
+  AlertTriangle
 } from "lucide-react";
 
 interface PublicLandingPageProps {
@@ -189,12 +188,13 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
         className="fixed top-0 left-0 right-0 h-[calc(4rem+env(safe-area-inset-top))] pt-[env(safe-area-inset-top)] border-b z-50 transition-colors backdrop-blur-md flex items-center justify-between px-6 lg:px-16"
       >
         <div className="flex items-center gap-2">
-          <div className="w-9 h-9 bg-gradient-to-tr from-purple-600 to-indigo-600 rounded-xl flex items-center justify-center font-black text-white text-base shadow-lg shadow-purple-500/20">
-            R
-          </div>
+          <img
+            src="/RepairSync_logo.png"
+            alt="RepairSync"
+            className="w-9 h-9 rounded-xl object-cover shadow-lg shadow-blue-500/20"
+          />
           <div>
             <span className="text-md font-black tracking-tight bg-gradient-to-r from-zinc-50 to-zinc-300 bg-clip-text text-transparent">RepairSync</span>
-            <span className="text-[8px] border border-emerald-500/30 bg-emerald-950/40 text-emerald-400 font-extrabold px-1 ml-1.5 rounded">R3</span>
           </div>
         </div>
 
@@ -288,21 +288,6 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
         {/* Glow Spheres */}
         <div className="absolute top-1/4 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[350px] h-[350px] lg:w-[600px] lg:h-[600px] bg-indigo-700/10 blur-[120px] rounded-full pointer-events-none -z-10" />
         <div className="absolute top-1/3 left-1/4 w-[250px] h-[250px] bg-purple-700/10 blur-[100px] rounded-full pointer-events-none -z-10" />
-
-        {/* Mini Pill Tag styling */}
-        <motion.div 
-          initial={{ opacity: 0, y: 15 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          className="inline-flex items-center gap-1.5 px-3 py-1 bg-zinc-900/80 border border-zinc-800 rounded-full mb-6 relative overflow-hidden group shadow-inner"
-        >
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          <span className="text-xs uppercase font-mono font-black text-zinc-300 tracking-wider">Enterprise Status Online</span>
-          <div className="h-4 w-px bg-zinc-800 mx-1" />
-          <span className="text-xs font-semibold text-purple-400 group-hover:text-purple-300 flex items-center gap-1 cursor-pointer" onClick={onLogin}>
-            Version 3.4 Active <ChevronRight className="w-3 h-3 group-hover:translate-x-0.5 transition-transform" />
-          </span>
-        </motion.div>
 
         {/* App identity must match the OAuth app name exactly for Google verification. */}
         <motion.h1 
@@ -1433,7 +1418,11 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           {/* Column 1 info */}
           <div className="col-span-2 space-y-4">
             <div className="flex items-center gap-2">
-              <div className="w-7 h-7 bg-purple-600 rounded-lg flex items-center justify-center text-white font-extrabold text-sm">R</div>
+              <img
+                src="/RepairSync_logo.png"
+                alt="RepairSync"
+                className="w-7 h-7 rounded-lg object-cover"
+              />
               <span className="font-black text-zinc-200 text-sm tracking-tight">RepairSync</span>
             </div>
             <p className="leading-relaxed max-w-xs text-zinc-400">
