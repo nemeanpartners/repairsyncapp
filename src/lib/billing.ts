@@ -16,6 +16,8 @@ export type AppSubscriptionStatus =
 export interface UserBillingProfile {
   companyId: string;
   companyName: string | null;
+  role: "admin" | "tech" | "member";
+  permissions: string[];
   hasAccess: boolean;
   billingRequired: boolean;
   subscriptionActive: boolean;
@@ -43,6 +45,8 @@ export function buildDefaultBillingProfile(creationTime?: string | null): UserBi
   return {
     companyId: "default",
     companyName: null,
+    role: "admin",
+    permissions: ["admin"],
     hasAccess: true,
     billingRequired: !grandfathered,
     subscriptionActive: grandfathered,

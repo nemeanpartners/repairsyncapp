@@ -41,7 +41,7 @@ export function GeneralSettingsForm() {
         
         <div className="space-y-2 pt-2">
           <Label>Shop Name</Label>
-          <Input {...register('shopName')} placeholder="e.g. PhoneMedic Repairs" />
+          <Input {...register('shopName')} placeholder="e.g. Your Repair Business" />
           {errors.shopName && <p className="text-xs text-red-500">{errors.shopName.message}</p>}
         </div>
 

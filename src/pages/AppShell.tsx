@@ -381,12 +381,16 @@ export function AppShell() {
       `}
       >
         <div
-          className={`p-4 h-15 flex items-center border-b border-zinc-100 flex-shrink-0 relative overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? "md:justify-center justify-start" : "justify-start"}`}
+          className={`px-4 pb-4 pt-[calc(1rem+env(safe-area-inset-top))] min-h-[calc(4.25rem+env(safe-area-inset-top))] md:min-h-[4rem] md:pt-4 flex items-center border-b border-zinc-100 flex-shrink-0 relative overflow-hidden transition-all duration-300 ${isDesktopCollapsed ? "md:justify-center justify-start" : "justify-start"}`}
         >
           <div
-            className={`bg-zinc-900 rounded-lg shrink-0 flex items-center justify-center text-white font-bold shadow-sm transition-all duration-300 ${isDesktopCollapsed ? "w-8 h-8 md:mr-0 mr-3" : "w-8 h-8 mr-3"}`}
+            className={`shrink-0 flex items-center justify-center overflow-hidden rounded-xl bg-zinc-950 shadow-sm ring-1 ring-zinc-200 transition-all duration-300 ${isDesktopCollapsed ? "w-9 h-9 md:mr-0 mr-3" : "w-9 h-9 mr-3"}`}
           >
-            R
+            <img
+              src="/RepairSync_logo.png"
+              alt="RepairSync"
+              className="h-full w-full object-cover"
+            />
           </div>
           <div
             className={`font-bold whitespace-nowrap text-lg text-zinc-900 tracking-tight transition-all duration-300 ${isDesktopCollapsed ? "md:w-0 md:opacity-0 md:hidden opacity-100 w-auto text-left flex-1" : "opacity-100 w-auto flex-1"}`}

@@ -40,7 +40,7 @@ export function StartDiagnosisModal({
 
   useEffect(() => {
     setSmsMessage(
-      `Hi ${customerName}, we have started diagnosis on your device for ticket #${ticketNumber}. We will be in touch shortly with an update. - PhoneMedic`
+      `Hi ${customerName}, we have started diagnosis on your device for ticket #${ticketNumber}. We will be in touch shortly with an update.`
     );
   }, [customerName, ticketNumber]);
 

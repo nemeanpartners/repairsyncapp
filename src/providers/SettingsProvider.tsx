@@ -19,10 +19,10 @@ const SettingsContext = createContext<SettingsContextType | undefined>(undefined
 
 const DEFAULT_SETTINGS: AppSettings = {
   general: {
-    shopName: 'PhoneMedic Repairs',
-    supportEmail: 'support@phonemedic.au',
-    businessPhone: '0400 000 000',
-    address: '123 Repair St, Tech City',
+    shopName: '',
+    supportEmail: '',
+    businessPhone: '',
+    address: '',
     timezone: 'Australia/Sydney',
     currency: 'AUD ($)'
   },

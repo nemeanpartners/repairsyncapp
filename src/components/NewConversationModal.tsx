@@ -15,7 +15,7 @@ const DEFAULT_TEMPLATES = [
   { id: '3', text: "Your {device} is ready for pickup." },
   { id: '4', text: "Your repair (Job #{ticketNumber}) is complete and your {device} is ready for pickup." },
   { id: '5', text: "We're currently looking into the issue with your {device} and will update you shortly." },
-  { id: '6', text: "Thank you for choosing Phone Medic!" }
+  { id: '6', text: "Thank you for choosing our repair team!" }
 ];
 
 export function NewConversationModal({ isOpen, onClose, onConversationCreated }: { isOpen: boolean, onClose: () => void, onConversationCreated?: (conv: any) => void }) {

@@ -20,8 +20,8 @@ const QUICK_RESPONSES = [
   { name: "Repair Complete", text: "Your {device} is ready for pickup." },
   { name: "Job Complete", text: "Your repair (Job #{ticketNumber}) is complete and your {device} is ready for pickup." },
   { name: "Investigating", text: "We're currently looking into the issue with your {device} and will update you shortly." },
-  { name: "Thank You", text: "Thank you for choosing Phone Medic!" },
-  { name: "Google Review", text: "Hi {firstName}, thanks for choosing Phone Medic Milton! We'd really appreciate it if you could leave us a quick Google review here: https://tinyurl.com/2avrh2sx" }
+  { name: "Thank You", text: "Thank you for choosing our repair team!" },
+  { name: "Google Review", text: "Hi {firstName}, thanks for choosing our repair team. We'd really appreciate it if you could leave us a quick review." }
 ];
 
 export function ConversationThread({ conversation: propConversation, onBack }: { conversation: any, onBack?: () => void }) {

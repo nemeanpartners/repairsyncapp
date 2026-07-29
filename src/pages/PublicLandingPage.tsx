@@ -7,8 +7,9 @@ import {
   useTransform, 
   Variants 
 } from "motion/react";
-import { auth } from "../firebase";
+import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { toast } from "sonner";
 import { 
   Sparkles, 
@@ -70,6 +71,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authEmail, setAuthEmail] = useState("");
   const [authPassword, setAuthPassword] = useState("");
+  const [authCompanyName, setAuthCompanyName] = useState("");
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
@@ -1588,10 +1590,45 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                       toast.error("Please fill in email and password fields");
                       return;
                     }
+                    if (isSignUp && authCompanyName.trim().length < 2) {
+                      toast.error("Please enter your repair business name");
+                      return;
+                    }
                     setAuthLoading(true);
                     try {
                       if (isSignUp) {
-                        await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+                        const credential = await createUserWithEmailAndPassword(auth, authEmail, authPassword);
+                        const companyName = authCompanyName.trim();
+                        const companyId = credential.user.uid;
+                        const profile = {
+                          uid: credential.user.uid,
+                          email: credential.user.email?.trim().toLowerCase() || authEmail.trim().toLowerCase(),
+                          displayName: credential.user.displayName || null,
+                          companyId,
+                          companyName,
+                          role: "admin",
+                          permissions: ["admin"],
+                          hasAccess: true,
+                          billingRequired: true,
+                          subscriptionActive: false,
+                          subscriptionStatus: "inactive",
+                          subscriptionPlan: null,
+                          subscriptionInterval: null,
+                          subscriptionSource: null,
+                          subscriptionGrandfathered: false,
+                          createdAt: serverTimestamp(),
+                          updatedAt: serverTimestamp(),
+                        };
+                        await setDoc(doc(db, "users", credential.user.uid), profile, { merge: true });
+                        await setDoc(doc(db, "companies", companyId), {
+                          companyName,
+                          ownerUid: credential.user.uid,
+                          ownerEmail: credential.user.email?.trim().toLowerCase() || authEmail.trim().toLowerCase(),
+                          setupRequired: false,
+                          createdAt: serverTimestamp(),
+                          updatedAt: serverTimestamp(),
+                        }, { merge: true });
+                        await setDoc(doc(db, "companies", companyId, "users", credential.user.uid), profile, { merge: true });
                         toast.success("Account created successfully!");
                         setIsAuthModalOpen(false);
                       } else {
@@ -1615,7 +1652,24 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                     }
                   }}
                   className="space-y-4"
-                >
+                  >
+                  {isSignUp ? (
+                    <div className="space-y-1.5">
+                      <label className="text-xs uppercase font-mono font-bold text-zinc-500" htmlFor="auth-company">
+                        Repair Business Name
+                      </label>
+                      <input
+                        type="text"
+                        id="auth-company"
+                        value={authCompanyName}
+                        onChange={(e) => setAuthCompanyName(e.target.value)}
+                        placeholder="Your repair business"
+                        className="w-full px-4 py-2.5 bg-zinc-900 border border-zinc-900 focus:border-purple-500 rounded-xl text-xs text-white placeholder-zinc-750 outline-none transition-colors"
+                        required={isSignUp}
+                      />
+                    </div>
+                  ) : null}
+
                   <div className="space-y-1.5">
                     <label className="text-xs uppercase font-mono font-bold text-zinc-500" htmlFor="auth-email">
                       Operator Email Address

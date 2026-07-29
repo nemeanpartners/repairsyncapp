@@ -1,15 +1,19 @@
 import React, { useState, useEffect } from 'react';
-import { db, auth } from '../firebase';
-import { collection, query, getDocs, doc, setDoc, deleteDoc } from 'firebase/firestore';
+import { auth } from '../firebase';
+import { query, getDocs, setDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
 import { Trash2, UserPlus, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
 import { companyCollection, companyDoc } from "../lib/companyFirestore";
+import { useAuth } from "../providers/AuthProvider";
 
 interface TeamMember {
   email: string;
+  uid?: string;
   role: 'admin' | 'tech';
+  permissions?: string[];
+  hasAccess?: boolean;
   displayName?: string;
   addedAt?: any;
 }
@@ -18,14 +22,18 @@ export const TeamMembersSettings: React.FC = () => {
   const [members, setMembers] = useState<TeamMember[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const { profile, user } = useAuth();
 
   const fetchMembers = async () => {
     try {
       const q = query(companyCollection('users'));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({
-        email: doc.id,
+        email: doc.data().email || doc.id,
+        uid: doc.data().uid,
         role: doc.data().role,
+        permissions: doc.data().permissions || [],
+        hasAccess: doc.data().hasAccess !== false,
         displayName: doc.data().displayName,
         addedAt: doc.data().addedAt
       })) as TeamMember[];
@@ -74,8 +82,16 @@ export const TeamMembersSettings: React.FC = () => {
     try {
       setIsLoading(true);
       await setDoc(companyDoc('users', email), {
+        email,
         role: 'tech',
-        addedAt: new Date()
+        permissions: ["tickets", "customers", "messages", "tasks"],
+        hasAccess: true,
+        companyId: profile?.companyId || null,
+        companyName: profile?.companyName || null,
+        invitedBy: user?.uid || null,
+        invitedByEmail: user?.email || null,
+        addedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
       }, { merge: true });
       toast.success(`Access granted for ${email}`);
       setNewEmail('');
@@ -110,7 +126,7 @@ export const TeamMembersSettings: React.FC = () => {
     });
   };
 
-  const isAdmin = auth.currentUser?.email === 'repairs.phonemedic.au@gmail.com';
+  const isAdmin = profile?.role === "admin" || profile?.permissions?.includes("admin");
 
   if (!isAdmin) {
     return (
@@ -120,7 +136,7 @@ export const TeamMembersSettings: React.FC = () => {
           <ShieldAlert className="w-8 h-8 text-amber-500" />
           <div>
             <h4 className="font-bold">Admin Privileges Required</h4>
-            <p className="text-sm text-muted-foreground mt-1">You must be the primary admin (repairs.phonemedic.au@gmail.com) to manage team members.</p>
+            <p className="text-sm text-muted-foreground mt-1">Only a company admin can manage team members and access permissions.</p>
           </div>
         </div>
       </div>
@@ -133,7 +149,7 @@ export const TeamMembersSettings: React.FC = () => {
       <div className="p-6 bg-secondary/30 rounded-2xl border border-border/30 space-y-6">
         <div>
           <h4 className="font-bold text-sm">Add Team Member</h4>
-          <p className="text-xs text-muted-foreground mb-3">Grant a technician access to log into RepairSync via Google Sign-In using their email.</p>
+          <p className="text-xs text-muted-foreground mb-3">Grant a technician access to your RepairSync company. They can sign in with this email and will not receive admin settings access.</p>
           <form onSubmit={handleAddMember} className="flex items-center gap-3">
             <div className="relative flex-1 max-w-sm">
                <Input 
@@ -180,7 +196,7 @@ export const TeamMembersSettings: React.FC = () => {
                       </div>
                     </div>
                   </div>
-                  {member.email !== 'repairs.phonemedic.au@gmail.com' && (
+                  {member.email !== auth.currentUser?.email?.toLowerCase() && member.role !== "admin" && (
                     <Button 
                       variant="ghost" 
                       size="icon"

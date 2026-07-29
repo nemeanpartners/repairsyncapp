@@ -45,7 +45,7 @@ export class TicketWorkflowEngine {
                let messageBody = templateStr
                  .replace(/{customer_name}/g, cust.fullname || cust.firstname || 'Customer')
                  .replace(/{ticket_number}/g, ticketData?.number?.toString() || ticketId)
-                 .replace(/{shop_name}/g, "PhoneMedic");
+                 .replace(/{shop_name}/g, "your repair shop");
                  
                await axios.post('/api/mobilemessage/send', {
                  to: phone,

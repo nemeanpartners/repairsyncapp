@@ -40,7 +40,7 @@ export function CompleteRepairModal({
 
   useEffect(() => {
     setSmsMessage(
-      `Hi ${customerName}, your repair for ticket #${ticketNumber} is now complete and ready for pickup! - PhoneMedic`
+      `Hi ${customerName}, your repair for ticket #${ticketNumber} is now complete and ready for pickup!`
     );
   }, [customerName, ticketNumber]);
 

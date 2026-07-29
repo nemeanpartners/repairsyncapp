@@ -2,7 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged, User, signOut as firebaseSignOut } from "firebase/auth";
 import { auth, authPersistenceReady, db } from "../firebase";
 import axios from "axios";
-import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
+import { collectionGroup, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where } from "firebase/firestore";
 import { buildDefaultBillingProfile, UserBillingProfile } from "../lib/billing";
 import { companyRootDoc, setActiveCompanyId } from "../lib/companyFirestore";
 
@@ -42,12 +42,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  const findInviteForUser = async (currentUser: User) => {
+    const email = currentUser.email?.trim().toLowerCase();
+    if (!email) return null;
+
+    const inviteQuery = query(collectionGroup(db, "users"), where("email", "==", email));
+    const snapshot = await getDocs(inviteQuery);
+    const inviteDoc = snapshot.docs.find((candidate) => candidate.ref.path.startsWith("companies/"));
+    if (!inviteDoc) return null;
+
+    const [, companyId] = inviteDoc.ref.path.split("/");
+    return {
+      companyId,
+      data: inviteDoc.data(),
+    };
+  };
+
   const syncUserProfile = async (currentUser: User) => {
     if (currentUser.isAnonymous) {
       const demoProfile = {
         ...buildDefaultBillingProfile(currentUser.metadata.creationTime),
         companyId: "demo",
         companyName: "RepairSync Demo",
+        role: "member" as const,
+        permissions: [],
       };
       setActiveCompanyId("demo");
       setProfile(demoProfile);
@@ -60,12 +78,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fallbackCompanyId = getFallbackCompanyId(currentUser);
 
     if (!snapshot.exists()) {
+      const invite = await findInviteForUser(currentUser);
       const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
-      const companyName = currentUser.displayName || "New Repair Business";
+      const companyId = invite?.companyId || fallbackCompanyId;
+      const role: UserBillingProfile["role"] =
+        invite?.data?.role === "admin" ? "admin" : invite ? "tech" : "admin";
+      const permissions = Array.isArray(invite?.data?.permissions)
+        ? invite.data.permissions
+        : role === "admin"
+          ? ["admin"]
+          : ["tickets", "customers", "messages", "tasks"];
+      const companyName = invite?.data?.companyName || null;
       const profile = {
         ...defaultProfile,
-        companyId: fallbackCompanyId,
+        companyId,
         companyName,
+        role,
+        permissions,
+        hasAccess: invite ? invite.data?.hasAccess !== false : defaultProfile.hasAccess,
       };
       await setDoc(
         userRef,
@@ -74,21 +104,35 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           email: currentUser.email || null,
           displayName: currentUser.displayName || null,
           photoURL: currentUser.photoURL || null,
-          companyId: fallbackCompanyId,
+          companyId,
           companyName,
-          role: "admin",
+          role,
+          permissions,
+          invitedBy: invite?.data?.invitedBy || null,
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
           ...profile,
         },
         { merge: true },
       );
-      setActiveCompanyId(fallbackCompanyId);
-      await setDoc(companyRootDoc(fallbackCompanyId), {
-        companyName,
-        ownerUid: currentUser.uid,
-        ownerEmail: currentUser.email || null,
+      setActiveCompanyId(companyId);
+      await setDoc(companyRootDoc(companyId), {
+        ...(companyName ? { companyName } : {}),
+        ...(role === "admin" ? { ownerUid: currentUser.uid, ownerEmail: currentUser.email || null } : {}),
         createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      await setDoc(companyRootDoc(companyId), {
+        setupRequired: role === "admin" && !companyName,
+      }, { merge: true });
+      await setDoc(doc(db, "companies", companyId, "users", currentUser.uid), {
+        uid: currentUser.uid,
+        email: currentUser.email?.trim().toLowerCase() || null,
+        displayName: currentUser.displayName || invite?.data?.displayName || null,
+        role,
+        permissions,
+        hasAccess: profile.hasAccess,
+        linkedAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }, { merge: true });
       setProfile(profile);
@@ -100,9 +144,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
     const companyId = data.companyId || data.company_id || data.organizationId || fallbackCompanyId;
     const companyName = data.companyName || data.businessName || null;
+    const role = data.role === "admin" ? "admin" : data.role === "tech" ? "tech" : "member";
+    const permissions = Array.isArray(data.permissions)
+      ? data.permissions
+      : role === "admin"
+        ? ["admin"]
+        : ["tickets", "customers", "messages", "tasks"];
     const normalizedProfile: UserBillingProfile = {
       companyId,
       companyName,
+      role,
+      permissions,
       hasAccess: data.hasAccess !== false,
       billingRequired:
         typeof data.billingRequired === "boolean"
@@ -131,7 +183,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.subscriptionActive === undefined ||
       data.subscriptionStatus === undefined ||
       data.subscriptionGrandfathered === undefined ||
-      data.companyId === undefined;
+      data.companyId === undefined ||
+      data.role === undefined;
 
     if (needsBackfill) {
       await setDoc(
@@ -140,6 +193,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           updatedAt: serverTimestamp(),
           companyId,
           companyName,
+          role,
+          permissions,
           ...normalizedProfile,
         },
         { merge: true },
@@ -148,7 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     setActiveCompanyId(companyId);
     await setDoc(companyRootDoc(companyId), {
-      companyName: companyName || "New Repair Business",
+      ...(companyName ? { companyName } : {}),
       updatedAt: serverTimestamp(),
     }, { merge: true }).catch((error) => {
       console.warn("Failed to ensure company document", error);

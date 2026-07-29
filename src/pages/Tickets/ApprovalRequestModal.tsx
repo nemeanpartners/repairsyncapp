@@ -49,7 +49,7 @@ export function ApprovalRequestModal({
   useEffect(() => {
     if (quoteAmount !== "" && quoteAmount > 0) {
       setSmsMessage(
-        `Hi ${customerName}, your repair estimate for ticket #${ticketNumber} is $${parseFloat(quoteAmount.toString()).toFixed(2)}. Please reply YES to proceed or NO to decline. - PhoneMedic`
+        `Hi ${customerName}, your repair estimate for ticket #${ticketNumber} is $${parseFloat(quoteAmount.toString()).toFixed(2)}. Please reply YES to proceed or NO to decline.`
       );
     } else {
       setSmsMessage("");

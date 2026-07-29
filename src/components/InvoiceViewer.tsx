@@ -664,7 +664,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
              {/* Footer */}
              <div className="border-t border-border/50 pt-8 mt-12 text-center text-xs font-medium text-muted-foreground">
                <p className="uppercase tracking-wide font-black mb-1 text-zinc-300">Thank you for your business</p>
-               <p>Payment is due within 7 days. Please direct any inquiries to repairs.phonemedic.au@gmail.com.</p>
+               <p>Payment is due within 7 days. Please direct any inquiries to your repair business support contact.</p>
               </div>
             </div>
          ) : (

@@ -33,6 +33,7 @@ import { CreditCard } from "lucide-react";
 export function SettingsView() {
   const [activeTab, setActiveTab] = useState<string | null>(null);
   const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin" || profile?.permissions?.includes("admin");
 
   const SETTING_TABS = [
     {
@@ -40,80 +41,95 @@ export function SettingsView() {
       icon: CreditCard,
       label: "My RepairSync Subscription",
       desc: "Billing, plan and payments",
+      adminOnly: true,
     },
     {
       id: "general",
       icon: Settings,
       label: "General",
       desc: "Shop details, currency, timezone",
+      adminOnly: true,
     },
     {
       id: "team",
       icon: Users,
       label: "Team",
       desc: "Manage technicians and staff roles",
+      adminOnly: true,
     },
     {
       id: "catalog",
       icon: Database,
       label: "Catalogs & Suppliers",
       desc: "Manage products and suppliers",
+      adminOnly: true,
     },
     {
       id: "notifications",
       icon: Bell,
       label: "Notifications",
       desc: "Email & SMS alerts",
+      adminOnly: true,
     },
     {
       id: "automations",
       icon: Workflow,
       label: "Automations",
       desc: "Trigger SMS on status change",
+      adminOnly: true,
     },
     {
       id: "chat_templates",
       icon: MessageSquareDashed,
       label: "Message Templates",
       desc: "Manage SMS fast replies & templates",
+      adminOnly: true,
     },
     {
       id: "devices",
       icon: Database,
       label: "Device Inventory",
       desc: "Manage brands and device models",
+      adminOnly: true,
     },
     {
       id: "appearance",
       icon: Palette,
       label: "Appearance",
       desc: "Theme and branding",
+      adminOnly: true,
     },
     {
       id: "integrations",
       icon: LinkIcon,
       label: "Integrations",
       desc: "Xero, Zoho, RepairShopr",
+      adminOnly: true,
     },
     {
       id: "ai",
       icon: Zap,
       label: "AI Features",
       desc: "Configure GenAI diagnostics",
+      adminOnly: true,
     },
     {
       id: "security",
       icon: Shield,
       label: "Security",
       desc: "Active sessions and Deletion Requests",
+      adminOnly: false,
     },
     {
       id: "database",
       icon: Database,
       label: "Data",
       desc: "Exports and backups",
+      adminOnly: true,
     },
   ];
+
+  const visibleTabs = isAdmin ? SETTING_TABS : SETTING_TABS.filter((tab) => !tab.adminOnly);
 
   const activeTabContext = SETTING_TABS.find((t) => t.id === activeTab);
 
@@ -186,7 +202,7 @@ export function SettingsView() {
             <div className="text-xs font-semibold text-zinc-400 uppercase tracking-wider mb-2 px-2">
               Settings Menu
             </div>
-            {SETTING_TABS.map((tab) => (
+            {visibleTabs.map((tab) => (
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
@@ -238,7 +254,7 @@ export function SettingsView() {
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 align-top">
-                {SETTING_TABS.map((tab) => (
+                {visibleTabs.map((tab) => (
                   <div
                     key={tab.id}
                     onClick={() => setActiveTab(tab.id)}

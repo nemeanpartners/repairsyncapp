@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { useAuth } from "../providers/AuthProvider";
-import { doc, getDoc } from "firebase/firestore";
-import { db } from "../firebase";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
 import { companyDoc } from "../lib/companyFirestore";
 
 export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
-  const { user, loading: authLoading } = useAuth();
+  const { user, profile, loading: authLoading } = useAuth();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -22,17 +20,17 @@ export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      const emailBytes = user.email?.toLowerCase();
-      // Primary admin fallback
-      if (emailBytes === 'repairs.phonemedic.au@gmail.com') {
+      if (profile?.role === "admin" || profile?.permissions?.includes("admin")) {
         setIsAdmin(true);
         setLoading(false);
         return;
       }
 
+      const emailBytes = user.email?.toLowerCase();
       if (emailBytes) {
         try {
-          const userDoc = await getDoc(companyDoc("users", emailBytes));
+          const { getDoc } = await import("firebase/firestore");
+          const userDoc = await getDoc(companyDoc("users", user.uid));
           if (userDoc.exists() && userDoc.data().role === 'admin') {
             setIsAdmin(true);
           } else {
@@ -49,7 +47,7 @@ export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
     }
 
     checkAdmin();
-  }, [authLoading, user]);
+  }, [authLoading, user, profile]);
 
   if (authLoading || loading) {
     return (
