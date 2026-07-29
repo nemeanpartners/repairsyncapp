@@ -281,16 +281,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (user) {
           const immediateCompanyId = user.isAnonymous ? "demo" : getFallbackCompanyId(user);
           const cachedProfile = getCachedProfile(user.uid);
-          const shouldWaitForProfile =
-            !cachedProfile ||
-            (!user.isAnonymous &&
-              cachedProfile.companyId === immediateCompanyId &&
-              (!cachedProfile.companyName || !cachedProfile.permissions?.includes("admin")));
 
           setActiveCompanyId(cachedProfile?.companyId || immediateCompanyId);
           setUser(user);
           setProfile(cachedProfile);
-          setLoading(shouldWaitForProfile);
+          setLoading(true);
 
           axios.defaults.headers.common['x-user-id'] = user.uid;
           if (user.email) {
