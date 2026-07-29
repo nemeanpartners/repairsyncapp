@@ -216,16 +216,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return null;
     }) || await resolveInviteViaServer(currentUser);
     const invitedCompanyId = invite?.companyId;
-    const shouldUseInvite =
+    const hasCompanyInvite = Boolean(invite?.companyId);
+    const shouldMoveToInviteCompany =
       Boolean(invite) &&
       (!data.companyId || data.companyId === fallbackCompanyId || data.companyId !== invitedCompanyId);
-    const companyId = shouldUseInvite
+    const companyId = shouldMoveToInviteCompany
       ? invitedCompanyId!
       : data.companyId || data.company_id || data.organizationId || fallbackCompanyId;
-    const companyName = shouldUseInvite
+    const companyName = hasCompanyInvite
       ? invite?.data?.companyName || data.companyName || data.businessName || null
       : data.companyName || data.businessName || null;
-    const role = shouldUseInvite
+    const role = hasCompanyInvite
       ? invite?.data?.role === "admin"
         ? "admin"
         : "tech"
@@ -234,7 +235,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         : data.role === "tech"
           ? "tech"
           : "member";
-    const permissions = shouldUseInvite && Array.isArray(invite?.data?.permissions)
+    const permissions = hasCompanyInvite && Array.isArray(invite?.data?.permissions)
       ? invite!.data.permissions
       : Array.isArray(data.permissions)
         ? data.permissions
@@ -246,22 +247,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       companyName,
       role,
       permissions,
-      hasAccess: shouldUseInvite ? invite?.data?.hasAccess !== false : data.hasAccess !== false,
-      billingRequired: shouldUseInvite
+      hasAccess: hasCompanyInvite ? invite?.data?.hasAccess !== false : data.hasAccess !== false,
+      billingRequired: hasCompanyInvite
         ? false
         : typeof data.billingRequired === "boolean"
           ? data.billingRequired
           : defaultProfile.billingRequired,
-      subscriptionActive: shouldUseInvite
+      subscriptionActive: hasCompanyInvite
         ? true
         : typeof data.subscriptionActive === "boolean"
           ? data.subscriptionActive
           : defaultProfile.subscriptionActive,
-      subscriptionStatus: shouldUseInvite ? "active" : data.subscriptionStatus || defaultProfile.subscriptionStatus,
+      subscriptionStatus: hasCompanyInvite ? "active" : data.subscriptionStatus || defaultProfile.subscriptionStatus,
       subscriptionPlan: data.subscriptionPlan || null,
       subscriptionInterval: data.subscriptionInterval || null,
-      subscriptionSource: shouldUseInvite ? "company_invite" : data.subscriptionSource || defaultProfile.subscriptionSource,
-      subscriptionGrandfathered: shouldUseInvite
+      subscriptionSource: hasCompanyInvite ? "company_invite" : data.subscriptionSource || defaultProfile.subscriptionSource,
+      subscriptionGrandfathered: hasCompanyInvite
         ? false
         : typeof data.subscriptionGrandfathered === "boolean"
           ? data.subscriptionGrandfathered
@@ -279,7 +280,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.subscriptionGrandfathered === undefined ||
       data.companyId === undefined ||
       data.role === undefined ||
-      shouldUseInvite;
+      hasCompanyInvite;
 
     if (needsBackfill) {
       await setDoc(

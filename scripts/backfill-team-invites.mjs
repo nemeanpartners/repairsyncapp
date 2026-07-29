@@ -55,6 +55,28 @@ async function runUsersCollectionGroupQuery() {
   return result.map((row) => row.document).filter(Boolean);
 }
 
+async function runTopLevelUsersByEmailQuery(email) {
+  const url =
+    `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}` +
+    `/databases/${firebaseConfig.firestoreDatabaseId}/documents:runQuery`;
+  const result = await firestoreRequest(url, {
+    method: "POST",
+    body: JSON.stringify({
+      structuredQuery: {
+        from: [{ collectionId: "users" }],
+        where: {
+          fieldFilter: {
+            field: { fieldPath: "email" },
+            op: "EQUAL",
+            value: { stringValue: email },
+          },
+        },
+      },
+    }),
+  });
+  return result.map((row) => row.document).filter(Boolean);
+}
+
 function inviteFromCompanyUserDocument(document) {
   const name = document.name;
   if (!name.includes("/documents/companies/") || !name.includes("/users/")) return null;
@@ -92,6 +114,47 @@ async function patchInvite(invite) {
   });
 }
 
+async function patchDocumentByPath(pathname, fields) {
+  await firestoreRequest(`${documentsBaseUrl()}/${pathname}`, {
+    method: "PATCH",
+    body: JSON.stringify({ fields }),
+  });
+}
+
+function docId(document) {
+  return document.name.split("/").pop();
+}
+
+async function applyInviteToExistingUsers(invite) {
+  const users = await runTopLevelUsersByEmailQuery(invite.email);
+  for (const user of users) {
+    const uid = docId(user);
+    const fields = {
+      ...(user.fields || {}),
+      ...invite.fields,
+      uid: { stringValue: uid },
+      email: { stringValue: invite.email },
+      companyId: { stringValue: invite.companyId },
+      billingRequired: { booleanValue: false },
+      subscriptionActive: { booleanValue: true },
+      subscriptionStatus: { stringValue: "active" },
+      subscriptionSource: { stringValue: "company_invite" },
+      subscriptionGrandfathered: { booleanValue: false },
+      updatedAt: { timestampValue: new Date().toISOString() },
+    };
+    await patchDocumentByPath(`users/${encodeURIComponent(uid)}`, fields);
+    await patchDocumentByPath(
+      `companies/${encodeURIComponent(invite.companyId)}/users/${encodeURIComponent(uid)}`,
+      fields,
+    );
+    await patchDocumentByPath(
+      `companies/${encodeURIComponent(invite.companyId)}/users/${encodeURIComponent(invite.email)}`,
+      fields,
+    );
+    console.log(`Activated company subscription for ${invite.email} user ${uid}`);
+  }
+}
+
 const documents = await runUsersCollectionGroupQuery();
 const invitesByEmail = new Map();
 for (const document of documents) {
@@ -105,6 +168,7 @@ for (const document of documents) {
 
 for (const invite of invitesByEmail.values()) {
   await patchInvite(invite);
+  await applyInviteToExistingUsers(invite);
   console.log(`Backfilled ${invite.email} -> ${invite.companyId}`);
 }
 
