@@ -304,27 +304,40 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
           </span>
         </motion.div>
 
-        {/* Exploding Headline */}
+        {/* App identity must match the OAuth app name exactly for Google verification. */}
         <motion.h1 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.7, delay: 0.15 }}
           className="text-4xl sm:text-5xl lg:text-7xl font-black tracking-tight text-white max-w-4xl leading-[1.08] lg:leading-[1.05]"
         >
-          RepairSync <br />
-          <span className="bg-gradient-to-r from-purple-400 via-indigo-300 to-indigo-500 bg-clip-text text-transparent">
-            Repair Business Management App
-          </span>
+          RepairSync
         </motion.h1>
 
-        {/* Sophisticated Subtitle */}
+        <motion.h2
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.2 }}
+          className="mt-4 text-2xl sm:text-3xl lg:text-5xl font-black tracking-tight bg-gradient-to-r from-purple-400 via-indigo-300 to-indigo-500 bg-clip-text text-transparent max-w-4xl leading-tight"
+        >
+          Repair business management app
+        </motion.h2>
+
         <motion.p 
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.25 }}
+          transition={{ duration: 0.7, delay: 0.3 }}
           className="mt-6 text-sm sm:text-base lg:text-lg text-zinc-400 max-w-2xl leading-relaxed"
         >
           RepairSync helps repair businesses manage repair tickets, customer communication, invoicing, quotes, inventory, technician workflows, and automated repair shop operations from one secure app.
+        </motion.p>
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.7, delay: 0.35 }}
+          className="mt-3 text-xs sm:text-sm text-zinc-500 max-w-2xl leading-relaxed"
+        >
+          If you choose Continue with Google, RepairSync uses your Google account only to sign you in, identify your user profile, and protect access to your repair business workspace.
         </motion.p>
 
         {/* Responsive Hero CTA */}
@@ -1432,9 +1445,9 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
               <span className="font-black text-zinc-200 text-sm tracking-tight">RepairSync</span>
             </div>
             <p className="leading-relaxed max-w-xs text-zinc-400">
-              The real-time repair operating system designed for density, technician momentum, and absolute compliance.
+              RepairSync is a repair business management app for repair tickets, customer communication, invoicing, quotes, inventory, technician workflows, and repair shop operations.
             </p>
-            <p className="text-xs text-zinc-600 font-mono">© 2026 RepairSync Inc. All rights reserved.</p>
+            <p className="text-xs text-zinc-600 font-mono">© 2026 RepairSync. All rights reserved.</p>
           </div>
 
           {/* Column 2 */}
