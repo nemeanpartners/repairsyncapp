@@ -120,6 +120,7 @@ import { NewTicketPage } from "../features/tickets/pages/NewTicketPage";
 import { NewInvoiceModal } from "../components/NewInvoiceModal";
 import { NewCustomerModal } from "../features/customers/components/NewCustomerModal";
 import { Button } from "../components/ui/button";
+import { companyCollection } from "../lib/companyFirestore";
 
 export function AppShell() {
   useNotifications();
@@ -222,7 +223,7 @@ export function AppShell() {
   useEffect(() => {
     if (!user) return;
     const q = query(
-      collection(db, "crm_tickets"),
+      companyCollection("crm_tickets"),
       where("status", "in", ["Waiting for Parts", "Waiting on Parts", "waiting for parts", "waiting on parts"])
     );
     const unsubscribe = onSnapshot(q, (snapshot) => {

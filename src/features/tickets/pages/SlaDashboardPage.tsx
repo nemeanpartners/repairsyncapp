@@ -7,6 +7,7 @@ import { AlertTriangle, Clock, TrendingDown, Users, CheckCircle2 } from 'lucide-
 import { TicketCard } from '../../../components/TicketCard';
 import { useNavigate } from 'react-router-dom';
 import { ExecutiveAiDashboard } from '../../executive-ai-dashboard/components/ExecutiveAiDashboard';
+import { companyCollection } from "../../../lib/companyFirestore";
 
 export function SlaDashboardPage() {
   const [breachedTickets, setBreachedTickets] = useState<Ticket[]>([]);
@@ -25,7 +26,7 @@ export function SlaDashboardPage() {
   useEffect(() => {
     const fetchSlaData = async () => {
       try {
-        const q = query(collection(db, 'crm_tickets'), orderBy('created_at', 'desc'), limit(200));
+        const q = query(companyCollection('crm_tickets'), orderBy('created_at', 'desc'), limit(200));
         const snap = await getDocs(q);
         const allTickets = snap.docs.map(d => ({ id: d.id, ...d.data() } as Ticket));
         

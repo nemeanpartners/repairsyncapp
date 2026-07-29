@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, getDoc, doc, addDoc, serverTimestamp
 import { getDb } from '../../utils/firebase.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { updateConversationMetadata } from './metadata.js';
+import { companyCollection, companyDoc } from '../../companyFirestore.js';
 
 async function shortenUrl(url: string): Promise<string> {
   try {
@@ -51,7 +52,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
 
   if (db && customerId) {
      try {
-       const cDoc = await getDoc(doc(db, 'crm_customers', String(customerId)));
+       const cDoc = await getDoc(companyDoc(db, 'crm_customers', String(customerId)));
        if (cDoc.exists()) {
           const c = cDoc.data();
           customerName = c.fullname || `${c.firstname || ''} ${c.lastname || ''}`.trim();
@@ -62,14 +63,14 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
 
   if (db && ticket_id) {
     try {
-      const ticketSnap = await getDocs(query(collection(db, 'crm_tickets'), where('id', '==', String(ticket_id))));
+      const ticketSnap = await getDocs(query(companyCollection(db, 'crm_tickets'), where('id', '==', String(ticket_id))));
       if (!ticketSnap.empty) {
         const tData = ticketSnap.docs[0].data();
         customerId = tData.customer_id;
         customerName = tData.customer_name;
         ticketNumber = tData.number;
       } else {
-        const tDoc = await getDoc(doc(db, 'crm_tickets', String(ticket_id)));
+        const tDoc = await getDoc(companyDoc(db, 'crm_tickets', String(ticket_id)));
         if (tDoc.exists()) {
           const tData = tDoc.data();
           customerId = tData.customer_id;
@@ -85,7 +86,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
   if (db && !customerId) {
     try {
       const normalizedTo = normalizePhone(to);
-      const custSnap = await getDocs(collection(db, 'crm_customers'));
+      const custSnap = await getDocs(companyCollection(db, 'crm_customers'));
       custSnap.forEach(d => {
         const c = d.data();
         const cPhone = normalizePhone(c.phone || '');
@@ -165,7 +166,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
             try {
               let msgEventId = undefined;
               if (!custom_ref) {
-                const newDocRef = await addDoc(collection(db, 'messages'), {
+                const newDocRef = await addDoc(companyCollection(db, 'messages'), {
                   from: 'system',
                   to: fmt,
                   text: message,
@@ -242,7 +243,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
               try {
                 let msgEventId = undefined;
                 if (!custom_ref) {
-                  const newDocRef = await addDoc(collection(db, 'messages'), {
+                  const newDocRef = await addDoc(companyCollection(db, 'messages'), {
                     from: 'system',
                     to: normalizePhone(to),
                     text: message,

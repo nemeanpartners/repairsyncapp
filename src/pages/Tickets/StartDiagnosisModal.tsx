@@ -12,6 +12,7 @@ import { collection, addDoc } from "firebase/firestore";
 import axios from "axios";
 import { toast } from "sonner";
 import { Send, Wrench } from "lucide-react";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export interface StartDiagnosisModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export function StartDiagnosisModal({
     setIsSubmitting(true);
     try {
       // 1. Add an internal note to the ticket
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: `Started diagnosis and sent SMS notification to customer.`,
         subject: "Diagnosis Started",

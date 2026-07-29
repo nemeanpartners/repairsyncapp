@@ -3,6 +3,7 @@ import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Loader2, AlertCircle, FileText } from 'lucide-react';
 import { Button } from './ui/button';
+import { companyDoc } from "../lib/companyFirestore";
 
 export const ReceiptViewer = ({ receiptId }: { receiptId: string }) => {
   const [loading, setLoading] = useState(true);
@@ -12,7 +13,7 @@ export const ReceiptViewer = ({ receiptId }: { receiptId: string }) => {
   useEffect(() => {
     const fetchReceipt = async () => {
       try {
-        const docRef = doc(db, 'receipts', receiptId);
+        const docRef = companyDoc('receipts', receiptId);
         const docSnap = await getDoc(docRef);
         
         if (docSnap.exists()) {

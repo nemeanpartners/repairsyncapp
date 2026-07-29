@@ -3,6 +3,7 @@ import { collection, query, where, onSnapshot, limit, orderBy } from 'firebase/f
 import { db } from '../firebase';
 import { toast } from 'sonner';
 import { useAuth } from '../providers/AuthProvider';
+import { companyCollection } from "../lib/companyFirestore";
 
 export function useNotifications() {
   const { user } = useAuth();
@@ -19,7 +20,7 @@ export function useNotifications() {
     // Wait, simple onSnapshot with limit 5 ordered by createdAt desc and compare dates is easier.
 
     const q = query(
-      collection(db, "notifications"),
+      companyCollection("notifications"),
       orderBy("createdAt", "desc"),
       limit(5)
     );

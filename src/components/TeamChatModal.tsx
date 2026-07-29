@@ -10,6 +10,7 @@ import { MessageSquare, Send, Users, User, Circle, Maximize2, Minimize2, Chevron
 import { MentionsInput, Mention } from 'react-mentions';
 import { format } from 'date-fns';
 import { toast } from 'sonner';
+import { companyCollection } from "../lib/companyFirestore";
 
 interface TeamMember {
   email: string;
@@ -140,7 +141,7 @@ export const TeamChatModal: React.FC<TeamChatModalProps> = ({ isOpen, onClose, c
     if (isOpen && members.length === 0) {
       const fetchMembers = async () => {
         try {
-          const q = query(collection(db, 'users'), where('role', '!=', '')); // basic filter
+          const q = query(companyCollection('users'), where('role', '!=', '')); // basic filter
           const snapshot = await getDocs(q);
           const data = snapshot.docs.map(doc => ({
             email: doc.id,
@@ -160,7 +161,7 @@ export const TeamChatModal: React.FC<TeamChatModalProps> = ({ isOpen, onClose, c
     if (isOpen && currentUserEmail) {
       setIsLoadingMessages(true);
       const q = query(
-        collection(db, 'team_messages'),
+        companyCollection('team_messages'),
         where('channel', '==', activeChannel),
         orderBy('timestamp', 'asc'),
         limitToLast(50)
@@ -193,7 +194,7 @@ export const TeamChatModal: React.FC<TeamChatModalProps> = ({ isOpen, onClose, c
 
     setIsSending(true);
     try {
-      await addDoc(collection(db, 'team_messages'), {
+      await addDoc(companyCollection('team_messages'), {
         text: newMessage.trim(),
         senderEmail: currentUserEmail,
         senderUid: auth.currentUser.uid,

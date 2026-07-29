@@ -22,6 +22,7 @@ import { SearchIndexService } from '../services/search/SearchIndexService';
 import { CustomerSearchEngine } from '../services/search/CustomerSearchEngine';
 import { ContactRow } from '../features/customers/components/ContactRow';
 import { CustomerDuplicateMergeTool } from '../features/customers/components/CustomerDuplicateMergeTool';
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const ContactsView = ({ onNavigate, onSelectContact }: { onNavigate: (view: string, id?: string) => void; onSelectContact?: (contact: any) => void }) => {
   const [contacts, setContacts] = useState<any[]>([]);
@@ -121,7 +122,7 @@ export const ContactsView = ({ onNavigate, onSelectContact }: { onNavigate: (vie
     try {
       if (totalContacts === null) {
         try {
-          const countSnap = await getCountFromServer(collection(db, 'crm_customers'));
+          const countSnap = await getCountFromServer(companyCollection('crm_customers'));
           const c = countSnap.data().count;
           setTotalContacts(c);
         } catch (e) {}
@@ -136,9 +137,9 @@ export const ContactsView = ({ onNavigate, onSelectContact }: { onNavigate: (vie
       } else {
          let q;
          if (append && lastVisible) {
-           q = query(collection(db, 'crm_customers'), orderBy(sortConfig.key, sortConfig.direction), startAfter(lastVisible), limit(50));
+           q = query(companyCollection('crm_customers'), orderBy(sortConfig.key, sortConfig.direction), startAfter(lastVisible), limit(50));
          } else {
-           q = query(collection(db, 'crm_customers'), orderBy(sortConfig.key, sortConfig.direction), limit(50));
+           q = query(companyCollection('crm_customers'), orderBy(sortConfig.key, sortConfig.direction), limit(50));
          }
          
          const snapshot = await getDocs(q);
@@ -205,7 +206,7 @@ export const ContactsView = ({ onNavigate, onSelectContact }: { onNavigate: (vie
     setIsDeleteDialogOpen(false);
     try {
       await Promise.all(selectedIds.map(async (id) => {
-        await deleteDoc(doc(db, 'crm_customers', id));
+        await deleteDoc(companyDoc('crm_customers', id));
         await SearchIndexService.recordDeleted(id, 'contacts');
       }));
       toast.success(`${selectedIds.length} contact(s) deleted successfully`);
@@ -235,7 +236,7 @@ export const ContactsView = ({ onNavigate, onSelectContact }: { onNavigate: (vie
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       };
-      const docRef = await addDoc(collection(db, 'crm_customers'), data);
+      const docRef = await addDoc(companyCollection('crm_customers'), data);
       await SearchIndexService.recordModified({ id: docRef.id, ...data }, 'contacts');
       toast.success('Contact added successfully');
       setIsAddContactOpen(false);

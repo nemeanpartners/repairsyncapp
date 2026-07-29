@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { doc, getDoc, collection, query, where, orderBy, getDocs, onSnapshot, limit } from "firebase/firestore";
 import { db } from "../firebase";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export interface TicketStatus {
   value: string;
@@ -57,7 +58,7 @@ export function useTicketData(ticketId?: string) {
     let unsubTicketNew: any = null;
 
     // 1. Attach listener for Ticket
-    const tRef = doc(db, "crm_tickets", ticketId);
+    const tRef = companyDoc("crm_tickets", ticketId);
     const unsubTicket = onSnapshot(tRef, async (tSnap) => {
       const processTicketData = async (snap: any) => {
           const tData = { id: snap.id, ...(snap.data() as object) } as any;
@@ -65,7 +66,7 @@ export function useTicketData(ticketId?: string) {
               setTicket(tData);
               // 2. Fetch Customer if exists (one-time fetch or separate listener)
               if (tData.customer_id) {
-                  const cRef = doc(db, "crm_customers", String(tData.customer_id));
+                  const cRef = companyDoc("crm_customers", String(tData.customer_id));
                   const cSnap = await getDoc(cRef);
                   if (cSnap.exists()) {
                       if (isMounted) setCustomer({ id: cSnap.id, ...cSnap.data() });
@@ -101,7 +102,7 @@ export function useTicketData(ticketId?: string) {
         await processTicketData(tSnap);
       } else {
         // Fallback to tickets array
-        const tNewRef = doc(db, "tickets", ticketId);
+        const tNewRef = companyDoc("tickets", ticketId);
         unsubTicketNew = onSnapshot(tNewRef, async (tNewSnap) => {
             if (tNewSnap.exists()) {
                await processTicketData(tNewSnap);
@@ -125,7 +126,7 @@ export function useTicketData(ticketId?: string) {
 
     // 4. Attach simple listener for Notes
     const notesQ = query(
-      collection(db, "crm_notes"),
+      companyCollection("crm_notes"),
       where("ticket_id", "==", String(ticketId)),
       orderBy("created_at", "asc")
     );
@@ -140,7 +141,7 @@ export function useTicketData(ticketId?: string) {
     });
 
     const itemsQ = query(
-      collection(db, "crm_line_items"),
+      companyCollection("crm_line_items"),
       where("ticket_id", "==", String(ticketId)),
       orderBy("created_at", "asc")
     );
@@ -154,7 +155,7 @@ export function useTicketData(ticketId?: string) {
     });
 
     const partsQ = query(
-      collection(db, "parts_orders"),
+      companyCollection("parts_orders"),
       where("ticketId", "==", String(ticketId)),
       orderBy("createdAt", "asc")
     );
@@ -168,7 +169,7 @@ export function useTicketData(ticketId?: string) {
     });
 
     const estimatesQ = query(
-      collection(db, "estimates"),
+      companyCollection("estimates"),
       where("ticket_id", "==", String(ticketId)),
       orderBy("created_at", "asc")
     );
@@ -182,7 +183,7 @@ export function useTicketData(ticketId?: string) {
     });
 
     const invoicesQ = query(
-      collection(db, "invoices"),
+      companyCollection("invoices"),
       where("ticket_id", "==", String(ticketId)),
       orderBy("created_at", "asc")
     );

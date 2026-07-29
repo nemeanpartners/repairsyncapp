@@ -19,6 +19,7 @@ import {
 } from "lucide-react";
 import { TicketCard } from "../../components/TicketCard";
 import { motion, AnimatePresence } from "motion/react";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 export function TicketKanbanView({
   filterCategories,
@@ -77,7 +78,7 @@ export function TicketKanbanView({
       return;
     }
 
-    const q = query(collection(db, "conversations"), limit(1000));
+    const q = query(companyCollection("conversations"), limit(1000));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const docs = snapshot.docs.map((doc) => ({
         id: doc.id,
@@ -134,8 +135,8 @@ export function TicketKanbanView({
 
     const chunkedValues = searchValues.slice(0, 30);
 
-    const qCrm = query(collection(db, "crm_tickets"), where("number", "in", chunkedValues));
-    const qNew = query(collection(db, "tickets"), where("number", "in", chunkedValues));
+    const qCrm = query(companyCollection("crm_tickets"), where("number", "in", chunkedValues));
+    const qNew = query(companyCollection("tickets"), where("number", "in", chunkedValues));
 
     let crmData: any[] = [];
     let newData: any[] = [];
@@ -182,13 +183,13 @@ export function TicketKanbanView({
         filterCategories.includes("robovac") ||
         filterCategories.includes("robot vacs"))
     ) {
-      qCrm = query(collection(db, "crm_tickets"), orderBy("updated_at", "desc"), limit(1500));
-      qNew = query(collection(db, "tickets"), orderBy("updated_at", "desc"), limit(1500));
+      qCrm = query(companyCollection("crm_tickets"), orderBy("updated_at", "desc"), limit(1500));
+      qNew = query(companyCollection("tickets"), orderBy("updated_at", "desc"), limit(1500));
       queryKeyCrm = "crm_tickets_kanban_1500_robovac_v3";
       queryKeyNew = "tickets_kanban_1500_robovac_v3";
     } else {
-      qCrm = query(collection(db, "crm_tickets"), orderBy("updated_at", "desc"), limit(100));
-      qNew = query(collection(db, "tickets"), orderBy("updated_at", "desc"), limit(100));
+      qCrm = query(companyCollection("crm_tickets"), orderBy("updated_at", "desc"), limit(100));
+      qNew = query(companyCollection("tickets"), orderBy("updated_at", "desc"), limit(100));
     }
 
     let crmData: any[] = [];
@@ -492,7 +493,7 @@ export function TicketKanbanView({
     e.stopPropagation();
     if (!ticket.id) return;
     try {
-      const ticketRef = doc(db, "crm_tickets", ticket.id.toString());
+      const ticketRef = companyDoc("crm_tickets", ticket.id.toString());
       const isTaggedRobot = Array.isArray(ticket.tags) && ticket.tags.includes("Robot Vac");
       if (isTaggedRobot) {
         await updateDoc(ticketRef, { tags: arrayRemove("Robot Vac") });
@@ -508,7 +509,7 @@ export function TicketKanbanView({
     e.stopPropagation();
     if (!ticket.id || ticket.isVirtual) return;
     try {
-      const ticketRef = doc(db, "crm_tickets", ticket.id.toString());
+      const ticketRef = companyDoc("crm_tickets", ticket.id.toString());
       const newPriority = ticket.priority === "Urgent" ? "Medium" : "Urgent";
       await updateDoc(ticketRef, { 
         priority: newPriority, 

@@ -5,6 +5,7 @@ import { Trash2, UserPlus, ShieldAlert, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { toast } from 'sonner';
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 interface TeamMember {
   email: string;
@@ -20,7 +21,7 @@ export const TeamMembersSettings: React.FC = () => {
 
   const fetchMembers = async () => {
     try {
-      const q = query(collection(db, 'users'));
+      const q = query(companyCollection('users'));
       const snapshot = await getDocs(q);
       const data = snapshot.docs.map(doc => ({
         email: doc.id,
@@ -47,7 +48,7 @@ export const TeamMembersSettings: React.FC = () => {
 
   const handleSaveDisplayName = async (email: string, displayName: string) => {
     try {
-      await setDoc(doc(db, 'users', email), {
+      await setDoc(companyDoc('users', email), {
         displayName
       }, { merge: true });
       toast.success('Display name updated');
@@ -72,7 +73,7 @@ export const TeamMembersSettings: React.FC = () => {
 
     try {
       setIsLoading(true);
-      await setDoc(doc(db, 'users', email), {
+      await setDoc(companyDoc('users', email), {
         role: 'tech',
         addedAt: new Date()
       }, { merge: true });
@@ -94,7 +95,7 @@ export const TeamMembersSettings: React.FC = () => {
         onClick: async () => {
           try {
             setIsLoading(true);
-            await deleteDoc(doc(db, 'users', email));
+            await deleteDoc(companyDoc('users', email));
             toast.success(`Access removed for ${email}`);
             fetchMembers();
           } catch (error) {

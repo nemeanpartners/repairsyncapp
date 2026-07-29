@@ -5,6 +5,7 @@ import { Button } from './ui/button';
 import { Loader2, CheckCircle2, AlertTriangle, AlertCircle, FileText, Mail, MessageSquare } from 'lucide-react';
 import { motion } from 'motion/react';
 import { toast } from 'sonner';
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: string, onBack?: () => void }) => {
   const [loading, setLoading] = useState(true);
@@ -22,9 +23,9 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
   useEffect(() => {
     const fetchEstimate = async () => {
       try {
-        let estDoc = await getDoc(doc(db, 'estimates', estimateId));
+        let estDoc = await getDoc(companyDoc('estimates', estimateId));
         if (!estDoc.exists()) {
-          estDoc = await getDoc(doc(db, 'crm_estimates', estimateId));
+          estDoc = await getDoc(companyDoc('crm_estimates', estimateId));
         }
         
         if (estDoc.exists()) {
@@ -32,20 +33,20 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
           setEstimate({ id: estDoc.id, ...estData });
 
           if (estData.ticket_id) {
-            const ticDoc = await getDoc(doc(db, 'crm_tickets', estData.ticket_id));
+            const ticDoc = await getDoc(companyDoc('crm_tickets', estData.ticket_id));
             if (ticDoc.exists()) {
               setTicket({ id: ticDoc.id, ...ticDoc.data() });
             }
           }
           if (estData.customer_id) {
-            const custDoc = await getDoc(doc(db, 'crm_customers', estData.customer_id));
+            const custDoc = await getDoc(companyDoc('crm_customers', estData.customer_id));
             if (custDoc.exists()) {
               setCustomer({ id: custDoc.id, ...custDoc.data() });
             }
           }
           
           try {
-            const orgSnap = await getDoc(doc(db, "settings", "organization"));
+            const orgSnap = await getDoc(companyDoc("settings", "organization"));
             if (orgSnap.exists()) {
               setOrgDetails((prev) => ({ ...prev, ...orgSnap.data() }));
             }
@@ -114,14 +115,14 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
     setActionLoading(true);
     try {
       try {
-        await updateDoc(doc(db, 'estimates', estimate.id), {
+        await updateDoc(companyDoc('estimates', estimate.id), {
           status,
           updated_at: new Date()
         });
       } catch(e) {}
       
       try {
-        await updateDoc(doc(db, 'crm_estimates', estimate.id), {
+        await updateDoc(companyDoc('crm_estimates', estimate.id), {
           status,
           updated_at: new Date()
         });
@@ -130,7 +131,7 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
       setEstimate({ ...estimate, status });
 
       if (status === 'approved' && ticket) {
-        await updateDoc(doc(db, 'crm_tickets', ticket.id), {
+        await updateDoc(companyDoc('crm_tickets', ticket.id), {
           status: 'Waiting for Parts',
           priority: 'Urgent',
           is_approved: true,
@@ -139,7 +140,7 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
         
         // Auto-add line items as charges to the ticket
         const existingItemsSnap = await getDocs(
-          query(collection(db, "crm_line_items"), where("ticket_id", "==", ticket.id))
+          query(companyCollection("crm_line_items"), where("ticket_id", "==", ticket.id))
         );
         const existingEstimateItemIds = new Set(
           existingItemsSnap.docs.map(doc => doc.data().estimate_item_id).filter(Boolean)
@@ -150,7 +151,7 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
             if (item.id && existingEstimateItemIds.has(item.id)) {
               continue; // Already added as a charge!
             }
-            await addDoc(collection(db, "crm_line_items"), {
+            await addDoc(companyCollection("crm_line_items"), {
               ticket_id: ticket.id,
               name: item.name || item.description || "Estimate Charge",
               price: Number(item.unit_price || item.price || 0),
@@ -163,7 +164,7 @@ export const EstimateApprovalView = ({ estimateId, onBack }: { estimateId: strin
         }
         
         // Add note
-        await addDoc(collection(db, "crm_notes"), {
+        await addDoc(companyCollection("crm_notes"), {
           ticket_id: ticket.id,
           body: `Estimate ${estimate.estimate_number || estimate.id} was APPROVED by the customer via the portal. Automatically added line items to ticket.`,
           subject: "Estimate Approved",

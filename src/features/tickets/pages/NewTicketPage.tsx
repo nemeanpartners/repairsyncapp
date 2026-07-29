@@ -119,6 +119,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { CustomerSearchBox } from '../../customers/components/CustomerSearchBox';
 import { NormalizedCustomer } from '../../../hooks/customers/useCustomerSearch';
 import { Plus, Grid3x3 } from 'lucide-react';
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 function PatternLockBox({ value, onChange }: { value: string, onChange: (v: string) => void }) {
   // If the value isn't a pattern (doesn't have dashes and isn't just numbers), we don't parse it well, but it's fine.
@@ -337,10 +338,10 @@ export function NewTicketPage() {
 
       if (isNewCustomer || !finalCustId) {
         custDataToSave.created_at = new Date().toISOString();
-        const crmRef = await addDoc(collection(db, 'crm_customers'), custDataToSave);
+        const crmRef = await addDoc(companyCollection('crm_customers'), custDataToSave);
         finalCustId = crmRef.id;
       } else {
-        await setDoc(doc(db, 'crm_customers', finalCustId), custDataToSave, { merge: true });
+        await setDoc(companyDoc('crm_customers', finalCustId), custDataToSave, { merge: true });
       }
 
       // 2. Create Ticket
@@ -379,7 +380,7 @@ export function NewTicketPage() {
       };
 
       const newTicketNumber = await runTransaction(db, async (transaction) => {
-        const settingsRef = doc(db, 'settings', 'ticket_manager');
+        const settingsRef = companyDoc('settings', 'ticket_manager');
         const settingsDoc = await transaction.get(settingsRef);
         let currentNumber = 40000;
         if (settingsDoc.exists() && settingsDoc.data().startNumber) {
@@ -394,11 +395,11 @@ export function NewTicketPage() {
 
       (tickData as any).number = newTicketNumber;
 
-      const tickDocRef = doc(collection(db, 'crm_tickets'));
+      const tickDocRef = doc(companyCollection('crm_tickets'));
       await setDoc(tickDocRef, tickData);
       const ticketId = tickDocRef.id;
 
-      await setDoc(doc(db, 'crm_customers', finalCustId), {
+      await setDoc(companyDoc('crm_customers', finalCustId), {
           tickets: arrayUnion({ id: ticketId, number: (tickData as any).number, subject: tickData.subject || '', status: tickData.status || '' })
       }, { merge: true });
 
@@ -409,7 +410,7 @@ export function NewTicketPage() {
         const sanitizedPhone = customer.phone.replace(/[^\d+]/g, '');
         const convId = `${finalCustId}_${sanitizedPhone}`;
         try {
-          await setDoc(doc(db, 'conversations', convId), {
+          await setDoc(companyDoc('conversations', convId), {
             customerName: `${customer.firstname || ''} ${customer.lastname || ''}`.trim(),
             phone: sanitizedPhone,
             customerId: finalCustId,
@@ -427,7 +428,7 @@ export function NewTicketPage() {
         try {
            let messageTemplate = "Hi {firstName}, your {brand} {model} is booked in! Job #{ticketNumber}. Track: {link}";
            const transactionResult = await runTransaction(db, async (txn) => {
-             const docSnap = await txn.get(doc(db, 'settings', 'webhook_templates'));
+             const docSnap = await txn.get(companyDoc('settings', 'webhook_templates'));
              return docSnap.exists() ? docSnap.data().newTicketTemplate : null;
            });
            if (transactionResult) messageTemplate = transactionResult;

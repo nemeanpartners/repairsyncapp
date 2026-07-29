@@ -9,6 +9,7 @@ import {
   Trash2, FileText, Send, Loader2, Sparkles, Plus, Image as ImageIcon
 } from "lucide-react";
 import { QCChecklist } from "../../tickets/components/QCChecklist";
+import { companyCollection } from "../../../lib/companyFirestore";
 
 interface Props {
   ticket: any;
@@ -37,7 +38,7 @@ export function DashboardTicketDetail({ ticket, onClose, onStatusChange, current
     if (!ticket) return;
 
     // A. Fetch Notes
-    const notesQ = query(collection(db, "crm_notes"), where("ticket_id", "==", ticket.id), orderBy("created_at", "desc"));
+    const notesQ = query(companyCollection("crm_notes"), where("ticket_id", "==", ticket.id), orderBy("created_at", "desc"));
     const unsubNotes = onSnapshot(notesQ, (snap) => {
       setNotes(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (error) => {
@@ -48,7 +49,7 @@ export function DashboardTicketDetail({ ticket, onClose, onStatusChange, current
     let unsubMsgs = () => {};
     if (ticket.customer_id) {
        const msgsQ = query(
-          collection(db, "messages"),
+          companyCollection("messages"),
           where("customerId", "==", String(ticket.customer_id)),
           orderBy("timestamp", "desc")
        );
@@ -61,7 +62,7 @@ export function DashboardTicketDetail({ ticket, onClose, onStatusChange, current
 
     // C. Fetch Customer
     if (ticket.customer_id) {
-       getDocs(query(collection(db, "crm_customers"), where("__name__", "==", String(ticket.customer_id))))
+       getDocs(query(companyCollection("crm_customers"), where("__name__", "==", String(ticket.customer_id))))
          .then(snap => {
             if (!snap.empty) setCustomer({ id: snap.docs[0].id, ...snap.docs[0].data() });
          });
@@ -78,7 +79,7 @@ export function DashboardTicketDetail({ ticket, onClose, onStatusChange, current
     if (!noteText.trim() || isAddingNote) return;
     setIsAddingNote(true);
     try {
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticket.id,
         body: noteText.trim(),
         created_at: serverTimestamp(),
@@ -97,7 +98,7 @@ export function DashboardTicketDetail({ ticket, onClose, onStatusChange, current
     if (!smsText.trim() || isSendingSms) return;
     setIsSendingSms(true);
     try {
-      await addDoc(collection(db, "messages"), {
+      await addDoc(companyCollection("messages"), {
         customerId: ticket.customer_id,
         direction: "outbound",
         text: smsText.trim(),

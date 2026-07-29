@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { collection, getDocs, doc, deleteDoc, query, orderBy, limit } from "firebase/firestore";
 import { getDb } from "../utils/firebase.js";
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ router.get("/api/scan-duplicates", async (req, res) => {
   try {
     const db = getDb();
     console.log("Fetching recent messages...");
-    const msgSnap = await getDocs(query(collection(db, 'messages'), orderBy('timestamp', 'desc'), limit(1500)));
+    const msgSnap = await getDocs(query(companyCollection(db, 'messages'), orderBy('timestamp', 'desc'), limit(1500)));
     const messages = msgSnap.docs.map(d => ({ id: d.id, ...(d.data() as any) }));
     console.log(`Analyzing ${messages.length} messages for duplicates...`);
 
@@ -75,7 +76,7 @@ router.post("/api/cleanup-duplicates", async (req, res) => {
         
         for (const id of duplicateIds) {
             console.log(`Deleting duplicate: ${id}`);
-            await deleteDoc(doc(db, 'messages', id));
+            await deleteDoc(companyDoc(db, 'messages', id));
             deletedCount++;
         }
         

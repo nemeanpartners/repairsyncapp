@@ -5,6 +5,7 @@ import { getDb } from '../utils/firebase.js';
 import { normalizePhone } from '../utils/phone.js';
 import { botAuth } from '../middleware/botAuth.js';
 import { updateConversationMetadata } from '../services/messaging.js';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 export const botRouter = Router();
 
@@ -16,7 +17,7 @@ botRouter.get('/api/bot/customers/search', botAuth, async (req, res) => {
       const q = String(req.query.q || '').trim().toLowerCase();
       if (!q) return res.status(400).json({ error: "query parameter 'q' is required" });
 
-      const snap = await getDocs(query(collection(db, 'crm_customers'), limit(1000)));
+      const snap = await getDocs(query(companyCollection(db, 'crm_customers'), limit(1000)));
       const qNorm = normalizePhone(q) || q;
       
       const results = snap.docs.map(d => ({ id: d.id, ...d.data() })).filter((c: any) => {
@@ -47,7 +48,7 @@ botRouter.post('/api/bot/tickets', botAuth, express.json(), async (req, res) => 
       let customerData: any = null;
 
       if (sanitizedPhone) {
-        const custResp = await getDocs(query(collection(db, 'crm_customers'), where('phone', '==', sanitizedPhone), limit(1)));
+        const custResp = await getDocs(query(companyCollection(db, 'crm_customers'), where('phone', '==', sanitizedPhone), limit(1)));
         if (!custResp.empty) {
           customerId = custResp.docs[0].id;
           customerData = custResp.docs[0].data();
@@ -55,7 +56,7 @@ botRouter.post('/api/bot/tickets', botAuth, express.json(), async (req, res) => 
       }
 
       if (!customerId && email) {
-        const custResp = await getDocs(query(collection(db, 'crm_customers'), where('email', '==', String(email).toLowerCase()), limit(1)));
+        const custResp = await getDocs(query(companyCollection(db, 'crm_customers'), where('email', '==', String(email).toLowerCase()), limit(1)));
         if (!custResp.empty) {
           customerId = custResp.docs[0].id;
           customerData = custResp.docs[0].data();
@@ -63,7 +64,7 @@ botRouter.post('/api/bot/tickets', botAuth, express.json(), async (req, res) => 
       }
 
       if (!customerId) {
-        const newCustRef = await addDoc(collection(db, 'crm_customers'), {
+        const newCustRef = await addDoc(companyCollection(db, 'crm_customers'), {
           phone: sanitizedPhone || '',
           email: email || '',
           firstname: customerName || 'New Customer',
@@ -76,7 +77,7 @@ botRouter.post('/api/bot/tickets', botAuth, express.json(), async (req, res) => 
       }
 
       const ticketNumber = await runTransaction(db, async (transaction) => {
-        const settingsRef = doc(db, 'settings', 'ticket_manager');
+        const settingsRef = companyDoc(db, 'settings', 'ticket_manager');
         const settingsDoc = await transaction.get(settingsRef);
         let currentNumber = 40000;
         if (settingsDoc.exists() && settingsDoc.data().startNumber) {
@@ -106,9 +107,9 @@ botRouter.post('/api/bot/tickets', botAuth, express.json(), async (req, res) => 
         }]
       };
 
-      const ticketRef = await addDoc(collection(db, 'crm_tickets'), ticketData);
+      const ticketRef = await addDoc(companyCollection(db, 'crm_tickets'), ticketData);
 
-      await updateDoc(doc(db, 'crm_customers', customerId), {
+      await updateDoc(companyDoc(db, 'crm_customers', customerId), {
         tickets: arrayUnion({ id: ticketRef.id, number: ticketNumber, subject: ticketData.subject, status: ticketData.status })
       });
 
@@ -135,7 +136,7 @@ botRouter.get('/api/bot/tickets/status', botAuth, async (req, res) => {
       const { phone, ticketNumber, email } = req.query;
       
       if (ticketNumber) {
-         const tResp = await getDocs(query(collection(db, 'crm_tickets'), where('number', '==', Number(ticketNumber))));
+         const tResp = await getDocs(query(companyCollection(db, 'crm_tickets'), where('number', '==', Number(ticketNumber))));
          if (tResp.empty) return res.status(404).json({ error: "Ticket not found" });
          const tkts = tResp.docs.map(d => ({ id: d.id, ...d.data() }));
          return res.json({ success: true, tickets: tkts });
@@ -144,11 +145,11 @@ botRouter.get('/api/bot/tickets/status', botAuth, async (req, res) => {
       let customerIds: string[] = [];
       if (phone) {
         const sanitizedPhone = normalizePhone(String(phone));
-        const custResp = await getDocs(query(collection(db, 'crm_customers'), where('phone', '==', sanitizedPhone)));
+        const custResp = await getDocs(query(companyCollection(db, 'crm_customers'), where('phone', '==', sanitizedPhone)));
         customerIds.push(...custResp.docs.map(d => d.id));
       }
       if (email && customerIds.length === 0) {
-        const custResp = await getDocs(query(collection(db, 'crm_customers'), where('email', '==', String(email).toLowerCase())));
+        const custResp = await getDocs(query(companyCollection(db, 'crm_customers'), where('email', '==', String(email).toLowerCase())));
         customerIds.push(...custResp.docs.map(d => d.id));
       }
 
@@ -156,7 +157,7 @@ botRouter.get('/api/bot/tickets/status', botAuth, async (req, res) => {
 
       let tickets: any[] = [];
       for (const cid of Array.from(new Set(customerIds))) {
-        const tickResp = await getDocs(query(collection(db, 'crm_tickets'), where('customer_id', '==', cid)));
+        const tickResp = await getDocs(query(companyCollection(db, 'crm_tickets'), where('customer_id', '==', cid)));
         tickResp.docs.forEach(d => tickets.push({ id: d.id, ...d.data() }));
       }
       
@@ -175,7 +176,7 @@ botRouter.post('/api/bot/tickets/:id/notes', botAuth, express.json(), async (req
       const { note } = req.body;
       if (!note) return res.status(400).json({ error: "note is required" });
       
-      const ticketRef = doc(db, 'crm_tickets', ticketId);
+      const ticketRef = companyDoc(db, 'crm_tickets', ticketId);
       const ticketDoc = await getDoc(ticketRef);
       if (!ticketDoc.exists()) return res.status(404).json({ error: "ticket not found" });
 

@@ -38,6 +38,7 @@ import { CustomerCallLogs } from './CustomerCallLogs';
 import { format } from 'date-fns';
 import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
+import { companyDoc } from "../../../lib/companyFirestore";
 
 interface CustomerProfileProps {
   customer: any;
@@ -114,7 +115,7 @@ export const CustomerProfile: React.FC<CustomerProfileProps> = ({
         zip: editData.zip
       };
       
-      await setDoc(doc(db, "crm_customers", customer.id), payload, { merge: true });
+      await setDoc(companyDoc("crm_customers", customer.id), payload, { merge: true });
       let updatedCustomer = { 
         ...customer, 
         ...payload

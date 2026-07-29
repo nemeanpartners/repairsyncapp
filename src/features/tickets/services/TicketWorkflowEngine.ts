@@ -2,13 +2,14 @@ import { db } from "../../../firebase";
 import { doc, getDoc, updateDoc, collection, addDoc, serverTimestamp } from "firebase/firestore";
 import axios from "axios";
 import { TICKET_PIPELINE } from "../../../hooks/useTicketData";
+import { companyDoc } from "../../../lib/companyFirestore";
 
 export class TicketWorkflowEngine {
   static async updateStatus(ticketId: string, newStatus: string, currentStatus: string, customerId?: string) {
     if (newStatus === currentStatus) return { success: true };
     
     try {
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         status: newStatus,
         updated_at: new Date().toISOString()
       });
@@ -27,18 +28,18 @@ export class TicketWorkflowEngine {
 
   static async triggerWorkflowAutomation(ticketId: string, newStatus: string, customerId: string) {
     try {
-      const smsTemplateDoc = await getDoc(doc(db, "sms_templates", newStatus));
+      const smsTemplateDoc = await getDoc(companyDoc("sms_templates", newStatus));
       if (smsTemplateDoc.exists()) {
         const templateStr = smsTemplateDoc.data().message as string;
         if (templateStr) {
-          const customerDoc = await getDoc(doc(db, "crm_customers", customerId));
+          const customerDoc = await getDoc(companyDoc("crm_customers", customerId));
           if (customerDoc.exists()) {
             const cust = customerDoc.data();
             const phone = cust.mobile || cust.phone;
             
             if (phone) {
                // Get Ticket details for interpolation
-               const ticketDoc = await getDoc(doc(db, "crm_tickets", ticketId));
+               const ticketDoc = await getDoc(companyDoc("crm_tickets", ticketId));
                const ticketData = ticketDoc.exists() ? ticketDoc.data() : null;
 
                let messageBody = templateStr

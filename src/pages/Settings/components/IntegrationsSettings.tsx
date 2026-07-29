@@ -31,7 +31,7 @@ function XeroSyncQueueMonitor() {
   useEffect(() => {
     // Read the queue in real-time. Limiting to 50 for safety and speed.
     // We sort in-memory desc by created_at to avoid requiring a compound Firestore index.
-    const q = query(collection(db, 'xero_sync_queue'), limit(50));
+    const q = query(companyCollection('xero_sync_queue'), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const dbJobs = snapshot.docs.map(docSnap => ({
         id: docSnap.id,
@@ -71,7 +71,7 @@ function XeroSyncQueueMonitor() {
 
   const handleRetryJob = async (jobId: string) => {
     try {
-      const jobRef = doc(db, 'xero_sync_queue', jobId);
+      const jobRef = companyDoc('xero_sync_queue', jobId);
       await updateDoc(jobRef, {
         status: 'PENDING',
         attempts: 0,
@@ -87,7 +87,7 @@ function XeroSyncQueueMonitor() {
   const handleDeleteJob = async (jobId: string) => {
     if (!confirm("Are you sure you want to delete this sync log from the queue?")) return;
     try {
-      await deleteDoc(doc(db, 'xero_sync_queue', jobId));
+      await deleteDoc(companyDoc('xero_sync_queue', jobId));
       toast.success("Sync job dismissed");
     } catch (e: any) {
       toast.error("Failed to delete sync job", { description: e.message });
@@ -283,6 +283,7 @@ function XeroSyncQueueMonitor() {
 }
 
 import { TwilioSettingsForm } from "./TwilioSettingsForm";
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 export function IntegrationsSettings() {
   const [zohoStatus, setZohoStatus] = useState<"syncing" | "active" | "inactive">("syncing");

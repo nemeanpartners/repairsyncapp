@@ -37,12 +37,13 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { collection, query, where, orderBy, onSnapshot, limit, getDocs, updateDoc, doc, addDoc, serverTimestamp, getDoc, QueryConstraint } from "firebase/firestore";
+import { query, where, orderBy, onSnapshot, limit, getDocs, updateDoc, doc, addDoc, serverTimestamp, getDoc, QueryConstraint } from "firebase/firestore";
 import { db, storage } from "../../../firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { toast } from "sonner";
 import { QCChecklist } from "../../tickets/components/QCChecklist";
 import { MessagingService } from "../../../services/MessagingService";
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 const FAST_NOTES_PRESETS = [
   "🔍 Diagnostic: Liquid trace found on board; ultrasound scrub completed.",
@@ -78,10 +79,10 @@ function displayValue(value: any, fallback = "") {
 
 async function safeGetCollection(collectionName: string, constraints: QueryConstraint[] = []) {
   try {
-    return await getDocs(query(collection(db, collectionName), ...constraints));
+    return await getDocs(query(companyCollection(collectionName), ...constraints));
   } catch (error) {
     console.error(`Technician dashboard query failed for ${collectionName}`, error);
-    return await getDocs(query(collection(db, collectionName), limit(50)));
+    return await getDocs(query(companyCollection(collectionName), limit(50)));
   }
 }
 
@@ -139,7 +140,7 @@ export function TechnicianDashboard() {
     if (!user) return;
     
     const q = query(
-      collection(db, "crm_tickets"),
+      companyCollection("crm_tickets"),
       where("tech_id", "==", user.uid),
       orderBy("updated_at", "desc"),
       limit(50)
@@ -217,7 +218,7 @@ export function TechnicianDashboard() {
 
     // A. Fetch Notes
     const notesQ = query(
-      collection(db, "crm_notes"),
+      companyCollection("crm_notes"),
       where("ticket_id", "==", selectedTicketId),
       orderBy("created_at", "desc"),
       limit(25)
@@ -232,14 +233,14 @@ export function TechnicianDashboard() {
     let messagesQ;
     if (activeTicket?.customer_id) {
        messagesQ = query(
-          collection(db, "messages"),
+          companyCollection("messages"),
           where("customerId", "==", String(activeTicket.customer_id)),
           orderBy("timestamp", "desc"),
           limit(50)
        );
     } else {
        messagesQ = query(
-          collection(db, "messages"),
+          companyCollection("messages"),
           orderBy("timestamp", "desc"),
           limit(20)
        );
@@ -252,7 +253,7 @@ export function TechnicianDashboard() {
 
     // C. Fetch Attachments from crm_attachments
     const attachQ = query(
-      collection(db, "crm_attachments"),
+      companyCollection("crm_attachments"),
       where("ticketId", "==", selectedTicketId),
       orderBy("createdAt", "desc")
     );
@@ -264,7 +265,7 @@ export function TechnicianDashboard() {
 
     // D. Fetch customer profile
     if (activeTicket?.customer_id) {
-       getDocs(query(collection(db, "crm_customers"), where("__name__", "==", String(activeTicket.customer_id))))
+       getDocs(query(companyCollection("crm_customers"), where("__name__", "==", String(activeTicket.customer_id))))
          .then(snap => {
             if (!snap.empty) {
               setCustomer({ id: snap.docs[0].id, ...snap.docs[0].data() });
@@ -308,7 +309,7 @@ export function TechnicianDashboard() {
     
     try {
       // 1. Check if the searchValue exactly matches a ticket ID
-      const docRef = doc(db, "crm_tickets", searchValue);
+      const docRef = companyDoc("crm_tickets", searchValue);
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
          setSelectedTicketId(docSnap.id);
@@ -323,15 +324,15 @@ export function TechnicianDashboard() {
     try {
       // 2. Check if searchValue is a ticket number or IMEI in active tickets
       const q1 = query(
-        collection(db, "crm_tickets"), 
+        companyCollection("crm_tickets"), 
         // We can't use OR easily without a composite index if the fields are different, so we do separate queries or just get both
       );
       
       const [imeiSnap, numStrSnap, numNumSnap, numTObjSnap] = await Promise.all([
-         getDocs(query(collection(db, "crm_tickets"), where("device_imei", "==", searchValue), limit(1))),
-         getDocs(query(collection(db, "crm_tickets"), where("number", "==", searchValue), limit(1))),
-         getDocs(query(collection(db, "crm_tickets"), where("number", "==", Number(searchValue)), limit(1))),
-         getDocs(query(collection(db, "crm_tickets"), where("number", "==", `T-${searchValue}`), limit(1)))
+         getDocs(query(companyCollection("crm_tickets"), where("device_imei", "==", searchValue), limit(1))),
+         getDocs(query(companyCollection("crm_tickets"), where("number", "==", searchValue), limit(1))),
+         getDocs(query(companyCollection("crm_tickets"), where("number", "==", Number(searchValue)), limit(1))),
+         getDocs(query(companyCollection("crm_tickets"), where("number", "==", `T-${searchValue}`), limit(1)))
       ]);
 
       const foundSnap = !imeiSnap.empty ? imeiSnap : (!numStrSnap.empty ? numStrSnap : (!numNumSnap.empty ? numNumSnap : (!numTObjSnap.empty ? numTObjSnap : null)));
@@ -348,10 +349,10 @@ export function TechnicianDashboard() {
 
     // 3. Check if matches parts order barcode
     try {
-      const partsSnap = await getDocs(query(collection(db, "parts_orders"), limit(200)));
+      const partsSnap = await getDocs(query(companyCollection("parts_orders"), limit(200)));
       const matchingPart = partsSnap.docs.find(d => d.id === searchValue || String(d.data().barcode || "").toLowerCase() === searchValue.toLowerCase());
       if (matchingPart) {
-         await updateDoc(doc(db, "parts_orders", matchingPart.id), {
+         await updateDoc(companyDoc("parts_orders", matchingPart.id), {
             status: "received",
             receivedAt: new Date().toISOString()
          });
@@ -372,7 +373,7 @@ export function TechnicianDashboard() {
     setIsPulling(true);
     try {
       const q = query(
-        collection(db, "crm_tickets"),
+        companyCollection("crm_tickets"),
         where("status", "==", "New"),
         orderBy("updated_at", "asc"),
         limit(1)
@@ -383,7 +384,7 @@ export function TechnicianDashboard() {
         return;
       }
       const ticket = snap.docs[0];
-      await updateDoc(doc(db, "crm_tickets", ticket.id), {
+      await updateDoc(companyDoc("crm_tickets", ticket.id), {
         tech_id: user.uid,
         status: "Diagnosing",
         updated_at: new Date().toISOString()
@@ -400,12 +401,12 @@ export function TechnicianDashboard() {
   // Fast Status stage toggle
   const updateTicketStatus = async (ticketId: string, newStatus: string) => {
     try {
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         status: newStatus,
         updated_at: new Date().toISOString()
       });
       // Append an internal audit note automatically
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: `🔄 Stage updated to <strong>${newStatus}</strong>`,
         subject: "Workflow Audit",
@@ -424,7 +425,7 @@ export function TechnicianDashboard() {
     if (!noteText.trim() || !selectedTicketId || isAddingNote) return;
     setIsAddingNote(true);
     try {
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: selectedTicketId,
         body: noteText.trim(),
         subject: "Internal Note",
@@ -460,7 +461,7 @@ export function TechnicianDashboard() {
       });
 
       // Post back to note history as SMS sent audit line
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: selectedTicketId,
         body: `💬 Outbound SMS: "${smsText.trim()}"`,
         subject: "SMS Log",
@@ -490,7 +491,7 @@ export function TechnicianDashboard() {
       const downloadURL = await getDownloadURL(uploadResult.ref);
 
       // Save attachment record in Firebase
-      await addDoc(collection(db, "crm_attachments"), {
+      await addDoc(companyCollection("crm_attachments"), {
         ticketId: selectedTicketId,
         name: file.name,
         url: downloadURL,
@@ -500,7 +501,7 @@ export function TechnicianDashboard() {
       });
 
       // Append note indicating file attached
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: selectedTicketId,
         body: `📷 Photo added to job attachments: <a href="${downloadURL}" target="_blank" class="text-blue-500 font-bold underline inline-flex items-center gap-1">View Media</a>`,
         subject: "Media Log",

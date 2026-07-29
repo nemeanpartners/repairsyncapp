@@ -25,6 +25,7 @@ import {
 } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const InvoicesModal = ({
   isOpen,
@@ -40,7 +41,7 @@ export const InvoicesModal = ({
   useEffect(() => {
     if (!isOpen) return;
     const q = query(
-      collection(db, "invoices"),
+      companyCollection("invoices"),
       orderBy("created_at", "desc"),
     );
     const unsub = onSnapshot(q, async (snap) => {
@@ -51,7 +52,7 @@ export const InvoicesModal = ({
         if (data.customer_id) {
           try {
             const cSnap = await getDoc(
-              doc(db, "crm_customers", data.customer_id),
+              companyDoc("crm_customers", data.customer_id),
             );
             if (cSnap.exists()) {
               customerName =

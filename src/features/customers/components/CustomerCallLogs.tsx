@@ -3,6 +3,7 @@ import { db } from '../../../firebase';
 import { collection, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
 import { PhoneIncoming, PhoneOutgoing, PhoneMissed, Loader2 } from 'lucide-react';
 import { format } from 'date-fns';
+import { companyCollection } from "../../../lib/companyFirestore";
 
 export function CustomerCallLogs({ customer }: { customer: any }) {
   const [callLogs, setCallLogs] = useState<any[]>([]);
@@ -18,12 +19,12 @@ export function CustomerCallLogs({ customer }: { customer: any }) {
         // Use phone number matching for call logs initially
         const queries = [];
         if (cPhone) {
-            queries.push(getDocs(query(collection(db, 'call_logs'), where('phoneNumber', '==', cPhone), limit(20))));
+            queries.push(getDocs(query(companyCollection('call_logs'), where('phoneNumber', '==', cPhone), limit(20))));
             // Also try format with + or local 0 if it starts with 0
         }
         
         if (customer.id) {
-           queries.push(getDocs(query(collection(db, 'call_logs'), where('customerId', '==', customer.id), limit(20))));
+           queries.push(getDocs(query(companyCollection('call_logs'), where('customerId', '==', customer.id), limit(20))));
         }
 
         const results = await Promise.all(queries);
@@ -37,7 +38,7 @@ export function CustomerCallLogs({ customer }: { customer: any }) {
 
         // Add global fallback for missing schemas
         if (map.size === 0) {
-            const fallback = await getDocs(query(collection(db, 'call_logs'), orderBy('createdAt', 'desc'), limit(50)));
+            const fallback = await getDocs(query(companyCollection('call_logs'), orderBy('createdAt', 'desc'), limit(50)));
             fallback.docs.forEach(doc => {
                 const log = doc.data();
                 const lPhone = log.phoneNumber?.replace(/\D/g, '') || '';

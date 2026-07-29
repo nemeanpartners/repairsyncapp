@@ -4,6 +4,7 @@ import { Link } from 'react-router-dom';
 import { db } from '../../firebase';
 import { Button } from '../../components/ui/button';
 import { DollarSign, CreditCard, Send, CheckCircle2, AlertTriangle, FileText, Calendar, Calculator, ChevronUp, ChevronDown } from 'lucide-react';
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 export function EndOfDayPage() {
   const [cashTotal, setCashTotal] = useState('');
@@ -58,7 +59,7 @@ export function EndOfDayPage() {
     setIsLoading(true);
     try {
       // 1. Get the last EOD record timestamp
-      const eodQ = query(collection(db, 'end_of_day_records'), orderBy('created_at', 'desc'), limit(1));
+      const eodQ = query(companyCollection('end_of_day_records'), orderBy('created_at', 'desc'), limit(1));
       const eodSnap = await getDocs(eodQ);
       let lastEodTimestamp = null;
       if (!eodSnap.empty) {
@@ -68,9 +69,9 @@ export function EndOfDayPage() {
       // 2. Query payments
       let payQ;
       if (lastEodTimestamp) {
-        payQ = query(collection(db, 'payments'), orderBy('created_at', 'asc')); // Client side filter for simplicity, or we can use where if we have index.
+        payQ = query(companyCollection('payments'), orderBy('created_at', 'asc')); // Client side filter for simplicity, or we can use where if we have index.
       } else {
-        payQ = query(collection(db, 'payments'), orderBy('created_at', 'asc'));
+        payQ = query(companyCollection('payments'), orderBy('created_at', 'asc'));
       }
       
       const paySnap = await getDocs(payQ);
@@ -87,7 +88,7 @@ export function EndOfDayPage() {
           if (customerCache[data.customer_id]) {
             customerName = customerCache[data.customer_id];
           } else {
-            const cSnap = await getDoc(doc(db, 'crm_customers', data.customer_id));
+            const cSnap = await getDoc(companyDoc('crm_customers', data.customer_id));
             if (cSnap.exists()) {
               const cData = cSnap.data();
               customerName = cData.firstname || cData.fullname || cData.name || 'Unknown Customer';
@@ -184,7 +185,7 @@ export function EndOfDayPage() {
       }
 
       // 1. Create EOD Record
-      const eodRef = await addDoc(collection(db, 'end_of_day_records'), {
+      const eodRef = await addDoc(companyCollection('end_of_day_records'), {
         date: selectedDate,
         cash_total: parsedCash,
         eftpos_total: parsedEftpos,
@@ -194,7 +195,7 @@ export function EndOfDayPage() {
       });
 
       // 2. Queue for Xero
-      await addDoc(collection(db, 'xero_sync_queue'), {
+      await addDoc(companyCollection('xero_sync_queue'), {
         entity_type: 'END_OF_DAY',
         entity_id: eodRef.id,
         operation: 'CREATE',
@@ -213,7 +214,7 @@ export function EndOfDayPage() {
       if (paymentsToClose.length > 0) {
         const batch = writeBatch(db);
         paymentsToClose.forEach(p => {
-          batch.update(doc(db, 'payments', p.id), {
+          batch.update(companyDoc('payments', p.id), {
             closed_in_eod: true,
             eod_record_id: eodRef.id,
             updated_at: serverTimestamp()

@@ -4,6 +4,7 @@ import { auth, db } from "../firebase";
 import axios from "axios";
 import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { buildDefaultBillingProfile, UserBillingProfile } from "../lib/billing";
+import { companyRootDoc, setActiveCompanyId } from "../lib/companyFirestore";
 
 interface AuthContextType {
   user: User | null;
@@ -22,34 +23,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const syncUserProfile = async (currentUser: User) => {
     if (currentUser.isAnonymous) {
-      setProfile(buildDefaultBillingProfile(currentUser.metadata.creationTime));
+      setActiveCompanyId("demo");
+      setProfile({
+        ...buildDefaultBillingProfile(currentUser.metadata.creationTime),
+        companyId: "demo",
+        companyName: "RepairSync Demo",
+      });
       return;
     }
 
     const userRef = doc(db, "users", currentUser.uid);
     const snapshot = await getDoc(userRef);
+    const fallbackCompanyId = `company_${currentUser.uid}`;
 
     if (!snapshot.exists()) {
       const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
+      const companyName = currentUser.displayName || "New Repair Business";
+      const profile = {
+        ...defaultProfile,
+        companyId: fallbackCompanyId,
+        companyName,
+      };
       await setDoc(
         userRef,
         {
+          uid: currentUser.uid,
           email: currentUser.email || null,
           displayName: currentUser.displayName || null,
           photoURL: currentUser.photoURL || null,
+          companyId: fallbackCompanyId,
+          companyName,
+          role: "admin",
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
-          ...defaultProfile,
+          ...profile,
         },
         { merge: true },
       );
-      setProfile(defaultProfile);
+      setActiveCompanyId(fallbackCompanyId);
+      await setDoc(companyRootDoc(fallbackCompanyId), {
+        companyName,
+        ownerUid: currentUser.uid,
+        ownerEmail: currentUser.email || null,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true });
+      setProfile(profile);
       return;
     }
 
     const data = snapshot.data() || {};
     const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
+    const companyId = data.companyId || data.company_id || data.organizationId || fallbackCompanyId;
+    const companyName = data.companyName || data.businessName || null;
     const normalizedProfile: UserBillingProfile = {
+      companyId,
+      companyName,
       hasAccess: data.hasAccess !== false,
       billingRequired:
         typeof data.billingRequired === "boolean"
@@ -77,19 +106,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       data.billingRequired === undefined ||
       data.subscriptionActive === undefined ||
       data.subscriptionStatus === undefined ||
-      data.subscriptionGrandfathered === undefined;
+      data.subscriptionGrandfathered === undefined ||
+      data.companyId === undefined;
 
     if (needsBackfill) {
       await setDoc(
         userRef,
         {
           updatedAt: serverTimestamp(),
+          companyId,
+          companyName,
           ...normalizedProfile,
         },
         { merge: true },
       );
     }
 
+    setActiveCompanyId(companyId);
+    await setDoc(companyRootDoc(companyId), {
+      companyName: companyName || "New Repair Business",
+      updatedAt: serverTimestamp(),
+    }, { merge: true }).catch((error) => {
+      console.warn("Failed to ensure company document", error);
+    });
     setProfile(normalizedProfile);
   };
 

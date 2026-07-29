@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { collection, onSnapshot, query } from "firebase/firestore";
 import { db } from "../firebase";
+import { companyCollection } from "../lib/companyFirestore";
 
 const PRESET_PRODUCTS = [
   { code: 'REP-SCR-IP14', description: 'iPhone 14 Screen Replacement', price: 189 },
@@ -70,7 +71,7 @@ export function useCatalogAndSuppliers() {
        }
     };
 
-    const unsubProd = onSnapshot(query(collection(db, "product_catalog")), (snap) => {
+    const unsubProd = onSnapshot(query(companyCollection("product_catalog")), (snap) => {
        dbProducts = snap.docs.map(d => ({ id: d.id, ...d.data() }));
        loadedProducts = true;
        updateState();
@@ -80,7 +81,7 @@ export function useCatalogAndSuppliers() {
        updateState();
     });
 
-    const unsubInv = onSnapshot(query(collection(db, "inventory_products")), (snap) => {
+    const unsubInv = onSnapshot(query(companyCollection("inventory_products")), (snap) => {
        dbInventory = snap.docs.map(d => ({ id: d.id, ...d.data() }));
        loadedInventory = true;
        updateState();
@@ -90,7 +91,7 @@ export function useCatalogAndSuppliers() {
        updateState();
     });
 
-    const unsubSupp = onSnapshot(query(collection(db, "suppliers")), (snap) => {
+    const unsubSupp = onSnapshot(query(companyCollection("suppliers")), (snap) => {
        dbSuppliers = snap.docs.map(d => d.data().name);
        loadedSuppliers = true;
        updateState();

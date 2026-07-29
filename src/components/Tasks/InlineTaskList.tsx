@@ -4,6 +4,7 @@ import { collection, query, where, onSnapshot, addDoc, updateDoc, doc, deleteDoc
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { CheckCircle2, Circle, MoreHorizontal, Plus, Trash2 } from 'lucide-react';
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 interface InlineTaskListProps {
   linkedTicketId?: string;
@@ -19,11 +20,11 @@ export function InlineTaskList({ linkedTicketId, linkedConversationPhone, linked
   useEffect(() => {
     let q;
     if (linkedTicketId) {
-      q = query(collection(db, "tasks"), where("linkedTicketId", "==", linkedTicketId));
+      q = query(companyCollection("tasks"), where("linkedTicketId", "==", linkedTicketId));
     } else if (linkedConversationId) {
-      q = query(collection(db, "tasks"), where("linkedConversationId", "==", linkedConversationId));
+      q = query(companyCollection("tasks"), where("linkedConversationId", "==", linkedConversationId));
     } else if (linkedConversationPhone) {
-      q = query(collection(db, "tasks"), where("linkedConversationPhone", "==", linkedConversationPhone));
+      q = query(companyCollection("tasks"), where("linkedConversationPhone", "==", linkedConversationPhone));
     } else {
       return;
     }
@@ -49,7 +50,7 @@ export function InlineTaskList({ linkedTicketId, linkedConversationPhone, linked
 
     try {
       setIsAdding(true);
-      await addDoc(collection(db, "tasks"), {
+      await addDoc(companyCollection("tasks"), {
         title: newTaskTitle.trim(),
         description: '',
         status: 'open',
@@ -68,13 +69,13 @@ export function InlineTaskList({ linkedTicketId, linkedConversationPhone, linked
   };
 
   const toggleTask = async (taskId: string, currentStatus: string) => {
-    await updateDoc(doc(db, "tasks", taskId), {
+    await updateDoc(companyDoc("tasks", taskId), {
       status: currentStatus === 'completed' ? 'open' : 'completed',
     });
   };
 
   const deleteTask = async (taskId: string) => {
-    await deleteDoc(doc(db, "tasks", taskId));
+    await deleteDoc(companyDoc("tasks", taskId));
   };
 
   return (

@@ -5,6 +5,7 @@ import { doc, getDoc, collection, query, where, getDocs, orderBy, updateDoc, add
 import { Clock, CheckCircle2, Wrench, Smartphone, Search, AlertCircle, Phone, Package, Download, Send, MessageSquare } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { toast } from "sonner";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 function normalizePhone(p?: string | null): string {
   if (!p) return "";
@@ -90,7 +91,7 @@ export function CustomerPortalView() {
   const loadData = async () => {
      if (!ticketId) return;
      try {
-        const docRef = doc(db, 'crm_tickets', ticketId);
+        const docRef = companyDoc('crm_tickets', ticketId);
         const snap = await getDoc(docRef);
         if (!snap.exists()) {
            setError("Ticket not found.");
@@ -103,7 +104,7 @@ export function CustomerPortalView() {
         // Load customer if exists
         let customerObj: any = null;
         if (tData.customer_id) {
-           const custRef = doc(db, 'crm_customers', String(tData.customer_id));
+           const custRef = companyDoc('crm_customers', String(tData.customer_id));
            const custSnap = await getDoc(custRef);
            if (custSnap.exists()) {
               customerObj = { id: custSnap.id, ...custSnap.data() };
@@ -126,7 +127,7 @@ export function CustomerPortalView() {
 
         // Load activity feed
         const q = query(
-           collection(db, 'crm_notes'), 
+           companyCollection('crm_notes'), 
            where("ticket_id", "==", snap.id),
            orderBy("created_at", "desc")
         );
@@ -139,7 +140,7 @@ export function CustomerPortalView() {
 
         // Load recent estimate for approval
         const estQ = query(
-           collection(db, 'estimates'),
+           companyCollection('estimates'),
            where("ticket_id", "==", snap.id),
            orderBy("created_at", "desc")
         );
@@ -165,14 +166,14 @@ export function CustomerPortalView() {
     setIsActionPending(true);
     try {
       // 1. Update estimate status to APPROVED
-      const estRef = doc(db, "estimates", estimate.id);
+      const estRef = companyDoc("estimates", estimate.id);
       await updateDoc(estRef, {
         status: "APPROVED",
         updated_at: new Date().toISOString()
       });
 
       // 2. Add activity notes
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticket.id,
         body: `Customer approved the estimate ${estimate.estimate_number || ''} (total $${Number(estimate.total || 0).toFixed(2)}) online. Ready to proceed with repair.`,
         subject: "Quote Approved (Online)",
@@ -182,7 +183,7 @@ export function CustomerPortalView() {
       });
 
       // 3. Update the ticket status & stage notes
-      const ticketRef = doc(db, "crm_tickets", ticket.id);
+      const ticketRef = companyDoc("crm_tickets", ticket.id);
       const updatedNotes = {
         ...(ticket.stage_notes || {}),
         "Waiting on Customer": `Approved online at ${new Date().toLocaleTimeString()} - Total: $${Number(estimate.total || 0).toFixed(2)}`
@@ -209,14 +210,14 @@ export function CustomerPortalView() {
     setIsActionPending(true);
     try {
       // 1. Update estimate status to DECLINED
-      const estRef = doc(db, "estimates", estimate.id);
+      const estRef = companyDoc("estimates", estimate.id);
       await updateDoc(estRef, {
         status: "DECLINED",
         updated_at: new Date().toISOString()
       });
 
       // 2. Add activity notes
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticket.id,
         body: `Customer declined the estimate ${estimate.estimate_number || ''} of $${Number(estimate.total || 0).toFixed(2)} online.`,
         subject: "Quote Declined (Online)",
@@ -226,7 +227,7 @@ export function CustomerPortalView() {
       });
 
       // 3. Update ticket status to Declined
-      const ticketRef = doc(db, "crm_tickets", ticket.id);
+      const ticketRef = companyDoc("crm_tickets", ticket.id);
       const updatedNotes = {
         ...(ticket.stage_notes || {}),
         "Waiting on Customer": `Declined online at ${new Date().toLocaleTimeString()} - Total: $${Number(estimate.total || 0).toFixed(2)}`
@@ -263,7 +264,7 @@ export function CustomerPortalView() {
       const ticketNumber = ticket?.number || ticket?.id || "";
 
       // 1. Add note to crm_notes
-      const noteRef = doc(collection(db, "crm_notes"));
+      const noteRef = doc(companyCollection("crm_notes"));
       batch.set(noteRef, {
         ticket_id: ticket.id,
         body: textToSend,
@@ -276,7 +277,7 @@ export function CustomerPortalView() {
       // 2. Add message and update conversation if customer phone is available
       if (customerPhone) {
         const messageId = "portal_" + Date.now();
-        const msgRef = doc(db, "messages", messageId);
+        const msgRef = companyDoc("messages", messageId);
 
         batch.set(msgRef, {
           from: customerPhone,
@@ -295,7 +296,7 @@ export function CustomerPortalView() {
 
         const threadId = normalizePhone(customerPhone);
         if (threadId) {
-          const convRef = doc(db, "conversations", threadId);
+          const convRef = companyDoc("conversations", threadId);
           batch.set(convRef, {
             customerId: customer?.id || ticket?.customer_id || null,
             customerName: customerName,

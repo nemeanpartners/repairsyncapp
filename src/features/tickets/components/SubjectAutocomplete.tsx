@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { collection, query, limit, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '../../../firebase';
 import { Input } from '@/components/ui/input';
+import { companyCollection } from "../../../lib/companyFirestore";
 
 const DEFAULT_SUBJECTS = [
   'Screen Replacement',
@@ -25,7 +26,7 @@ export function SubjectAutocomplete({ value, onChange, errorClass }: { value: st
   useEffect(() => {
     const fetchRecentSubjects = async () => {
       try {
-        const q = query(collection(db, 'crm_tickets'), orderBy('created_at', 'desc'), limit(100));
+        const q = query(companyCollection('crm_tickets'), orderBy('created_at', 'desc'), limit(100));
         const snap = await getDocs(q);
         const subjects = new Set<string>(DEFAULT_SUBJECTS);
         snap.forEach(doc => {

@@ -82,6 +82,7 @@ import { SearchService } from "../../services/search/SearchService";
 import { CollapsibleSection } from "@/components/CollapsibleSection";
 
 import { useCatalogAndSuppliers } from "../../hooks/useCatalogAndSuppliers";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 export function TicketDetails({
   ticketId,
@@ -246,14 +247,14 @@ export function TicketDetails({
       });
 
       // Update message status on Firestore
-      const ticketRef = doc(db, "crm_tickets", ticketId);
+      const ticketRef = companyDoc("crm_tickets", ticketId);
       await updateDoc(ticketRef, {
         [`stage_message_status.${stageValue}`]: "sent",
         updated_at: new Date().toISOString()
       });
 
       // Add note
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: `Workflow stage "${stageValue}" SMS sent to customer.\nContent: "${messageText.trim()}"`,
         subject: `SMS Notify - ${stageValue}`,
@@ -275,7 +276,7 @@ export function TicketDetails({
     setIsInitializingEstimate(true);
     try {
       const estNum = `EST-${Math.floor(100000 + Math.random() * 900000)}`;
-      await addDoc(collection(db, "estimates"), {
+      await addDoc(companyCollection("estimates"), {
         customer_id: ticket.customer_id || customer?.id || "",
         ticket_id: ticketId,
         estimate_number: estNum,
@@ -316,7 +317,7 @@ export function TicketDetails({
       const subtotal = updatedItems.reduce((acc, curr) => acc + (Number(curr.unit_price) * Number(curr.quantity || 1)), 0);
       const total = subtotal;
 
-      await updateDoc(doc(db, "estimates", est.id), {
+      await updateDoc(companyDoc("estimates", est.id), {
         line_items: updatedItems,
         subtotal,
         total,
@@ -325,7 +326,7 @@ export function TicketDetails({
       });
 
       // Also add directly to crm_line_items so they appear in the top section and can be converted into invoices
-      await addDoc(collection(db, "crm_line_items"), {
+      await addDoc(companyCollection("crm_line_items"), {
         ticket_id: ticketId,
         name: newChargeName.trim(),
         price: Number(newChargePrice),
@@ -350,7 +351,7 @@ export function TicketDetails({
       const subtotal = updatedItems.reduce((acc, curr) => acc + (Number(curr.unit_price) * Number(curr.quantity || 1)), 0);
       const total = subtotal;
 
-      await updateDoc(doc(db, "estimates", est.id), {
+      await updateDoc(companyDoc("estimates", est.id), {
         line_items: updatedItems,
         subtotal,
         total,
@@ -361,13 +362,13 @@ export function TicketDetails({
       if (itemToRemove && itemToRemove.id) {
         // Query crm_line_items with estimate_item_id === itemToRemove.id and delete them
         const q = query(
-          collection(db, "crm_line_items"),
+          companyCollection("crm_line_items"),
           where("ticket_id", "==", ticketId),
           where("estimate_item_id", "==", itemToRemove.id)
         );
         const snap = await getDocs(q);
         for (const docSnap of snap.docs) {
-          await deleteDoc(doc(db, "crm_line_items", docSnap.id));
+          await deleteDoc(companyDoc("crm_line_items", docSnap.id));
         }
       }
 
@@ -380,7 +381,7 @@ export function TicketDetails({
   React.useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "chat_templates"));
+        const snapshot = await getDocs(companyCollection("chat_templates"));
         const templates: { name: string; text: string }[] = [];
         snapshot.forEach((doc) => {
           if (doc.data().text) {
@@ -412,12 +413,12 @@ export function TicketDetails({
   const handleApproveEstimate = async (estimateId: string) => {
     try {
       const estimate = estimates?.find((e: any) => e.id === estimateId);
-      await updateDoc(doc(db, "estimates", estimateId), {
+      await updateDoc(companyDoc("estimates", estimateId), {
         status: "approved",
         updated_at: new Date().toISOString()
       });
       // Also add a note indicating the estimate was approved from the UI
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: `Estimate has been marked as approved. Automatically added estimate line items to the ticket.`,
         subject: "Estimate Approved",
@@ -428,7 +429,7 @@ export function TicketDetails({
       
       // Auto-add charges (line items) to the ticket based on the estimate
       const existingItemsSnap = await getDocs(
-        query(collection(db, "crm_line_items"), where("ticket_id", "==", ticketId))
+        query(companyCollection("crm_line_items"), where("ticket_id", "==", ticketId))
       );
       const existingEstimateItemIds = new Set(
         existingItemsSnap.docs.map(doc => (doc.data() as any).estimate_item_id).filter(Boolean)
@@ -439,7 +440,7 @@ export function TicketDetails({
           if (item.id && existingEstimateItemIds.has(item.id)) {
             continue; // Already added as a charge!
           }
-          await addDoc(collection(db, "crm_line_items"), {
+          await addDoc(companyCollection("crm_line_items"), {
             ticket_id: ticketId,
             name: item.name || item.description || "Estimate Charge",
             price: Number(item.unit_price || item.price || 0),
@@ -743,7 +744,7 @@ export function TicketDetails({
 
   const handleSelectCustomer = async (selectedCustomer: any) => {
     try {
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         customer_id: selectedCustomer.id,
         customer_name:
           `${selectedCustomer.firstName || selectedCustomer.firstname || ""} ${selectedCustomer.lastName || selectedCustomer.lastname || ""}`.trim() ||
@@ -764,7 +765,7 @@ export function TicketDetails({
     if (!customer?.id) return;
     setIsSavingCustomer(true);
     try {
-      await updateDoc(doc(db, "crm_customers", customer.id), {
+      await updateDoc(companyDoc("crm_customers", customer.id), {
         firstname: editCustomerData.firstname || "",
         lastname: editCustomerData.lastname || "",
         phone: editCustomerData.phone || "",
@@ -772,7 +773,7 @@ export function TicketDetails({
         updated_at: new Date().toISOString(),
       });
       // also optionally update the ticket reference if needed
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         customer_name:
           `${editCustomerData.firstname || ""} ${editCustomerData.lastname || ""}`.trim(),
         customer_firstname: editCustomerData.firstname || "",
@@ -792,7 +793,7 @@ export function TicketDetails({
     if (!ticketId) return;
     setIsSavingDevice(true);
     try {
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         brand: editDeviceData.brand || "",
         device_model: editDeviceData.device_model || "",
         repair_category: editDeviceData.repair_category || "",
@@ -850,7 +851,7 @@ export function TicketDetails({
     const newTags = [...currentTags, newTagText.trim()];
     
     try {
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         tag_list: newTags,
         updated_at: new Date().toISOString()
       });
@@ -868,7 +869,7 @@ export function TicketDetails({
     const newTags = currentTags.filter((t: string) => t !== tagToRemove);
     
     try {
-      await updateDoc(doc(db, "crm_tickets", ticketId), {
+      await updateDoc(companyDoc("crm_tickets", ticketId), {
         tag_list: newTags,
         updated_at: new Date().toISOString()
       });
@@ -906,7 +907,7 @@ export function TicketDetails({
 
     setIsSavingPriority(true);
     try {
-      const ticketRef = doc(db, "crm_tickets", ticketId!);
+      const ticketRef = companyDoc("crm_tickets", ticketId!);
       await updateDoc(ticketRef, { 
         priority: newPriority,
         updated_at: new Date().toISOString()
@@ -926,7 +927,7 @@ export function TicketDetails({
 
     setIsSavingPartsStatus(true);
     try {
-      const ticketRef = doc(db, "crm_tickets", ticketId!);
+      const ticketRef = companyDoc("crm_tickets", ticketId!);
       await updateDoc(ticketRef, { 
         parts_status: newPartsStatus,
         updated_at: new Date().toISOString()
@@ -959,7 +960,7 @@ export function TicketDetails({
   const handleSaveStageNote = async (stageValue: string) => {
     if (!ticketId) return;
     try {
-      const ticketRef = doc(db, "crm_tickets", ticketId);
+      const ticketRef = companyDoc("crm_tickets", ticketId);
       const currentNotes = ticket?.stage_notes || {};
       const updatedNotes = {
         ...currentNotes,
@@ -986,7 +987,7 @@ export function TicketDetails({
       return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, "crm_tickets", ticketId));
+      await deleteDoc(companyDoc("crm_tickets", ticketId));
       toast.success("Ticket deleted successfully.");
       onBack();
     } catch (err) {
@@ -1000,7 +1001,7 @@ export function TicketDetails({
     if (!internalNote.trim() || isSavingNote) return;
     setIsSavingNote(true);
     try {
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: internalNote.trim(),
         subject: "Internal Note",
@@ -1020,7 +1021,7 @@ export function TicketDetails({
     if (!newLineItem.name || isAddingCharge) return;
     setIsAddingCharge(true);
     try {
-      await addDoc(collection(db, "crm_line_items"), {
+      await addDoc(companyCollection("crm_line_items"), {
         ticket_id: ticketId,
         name: newLineItem.name,
         price: Number(newLineItem.price),
@@ -1041,7 +1042,7 @@ export function TicketDetails({
     if (!newPartName.trim() || isAddingPart) return;
     setIsAddingPart(true);
     try {
-      await addDoc(collection(db, "parts_orders"), {
+      await addDoc(companyCollection("parts_orders"), {
         partName: newPartName,
         description: newPartNotes,
         status: "needs_ordering",
@@ -1058,7 +1059,7 @@ export function TicketDetails({
       
       // Auto-save to catalog if it's new
       if (newPartName && !products.some((p: any) => p?.description?.toLowerCase() === newPartName.toLowerCase())) {
-         await addDoc(collection(db, "product_catalog"), {
+         await addDoc(companyCollection("product_catalog"), {
            code: "PART-" + Math.random().toString(36).substring(2, 6).toUpperCase(),
            description: newPartName,
            price: 0,
@@ -1068,7 +1069,7 @@ export function TicketDetails({
 
       // Auto-save supplier if it's new
       if (newPartSupplier && !suppliers.some((s: any) => s?.toLowerCase() === newPartSupplier.toLowerCase())) {
-         await addDoc(collection(db, "suppliers"), {
+         await addDoc(companyCollection("suppliers"), {
            name: newPartSupplier,
            created_at: serverTimestamp()
          });
@@ -2904,7 +2905,7 @@ export function TicketDetails({
                               setNewPartName(partCatalogSearch);
                               setShowPartCatalog(false);
                               try {
-                                await addDoc(collection(db, "product_catalog"), {
+                                await addDoc(companyCollection("product_catalog"), {
                                   code: "PART-" + Math.random().toString(36).substring(2, 6).toUpperCase(),
                                   description: partCatalogSearch,
                                   price: 0,
@@ -2966,7 +2967,7 @@ export function TicketDetails({
                           setNewPartSupplier(supplierSearch);
                           setShowSupplierMenu(false);
                           try {
-                             await addDoc(collection(db, "suppliers"), {
+                             await addDoc(companyCollection("suppliers"), {
                                name: supplierSearch,
                                created_at: serverTimestamp()
                              });

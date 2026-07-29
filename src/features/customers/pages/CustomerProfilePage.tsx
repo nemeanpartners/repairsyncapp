@@ -4,6 +4,7 @@ import { db } from '../../../firebase';
 import { doc, collection, query, where, onSnapshot } from 'firebase/firestore';
 import { CustomerProfile } from '../components/CustomerProfile';
 import { Loader2 } from 'lucide-react';
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 export function CustomerProfilePage() {
   const { id } = useParams();
@@ -17,7 +18,7 @@ export function CustomerProfilePage() {
     if (!id) return;
 
     // 1. Listen to customer document
-    const unsubCustomer = onSnapshot(doc(db, 'crm_customers', id), (docSnap) => {
+    const unsubCustomer = onSnapshot(companyDoc('crm_customers', id), (docSnap) => {
       if (docSnap.exists()) {
         setCustomer({ id: docSnap.id, ...docSnap.data() });
       } else {
@@ -30,7 +31,7 @@ export function CustomerProfilePage() {
     });
 
     // 2. Listen to customer's tickets
-    const qTickets = query(collection(db, 'crm_tickets'), where('customer_id', '==', id));
+    const qTickets = query(companyCollection('crm_tickets'), where('customer_id', '==', id));
     const unsubTickets = onSnapshot(qTickets, (snap) => {
       setTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }, (err) => {
@@ -39,7 +40,7 @@ export function CustomerProfilePage() {
 
     // 3. Listen to Xero sync jobs for this customer
     const qSync = query(
-      collection(db, 'xero_sync_queue'),
+      companyCollection('xero_sync_queue'),
       where('entity_id', '==', id),
       where('entity_type', '==', 'CUSTOMER')
     );

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getDb } from '../utils/firebase.js';
 import { collection, getDocs, getDoc, doc, limit, query } from 'firebase/firestore';
 import fs from 'fs';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 export const debugRouter = Router();
 
@@ -24,8 +25,8 @@ export const debugRouter = Router();
     try {
       const db = getDb();
       const [snap1, snap2] = await Promise.all([
-         getDocs(query(collection(db, 'tickets'), limit(10))),
-         getDocs(query(collection(db, 'crm_tickets'), limit(10)))
+         getDocs(query(companyCollection(db, 'tickets'), limit(10))),
+         getDocs(query(companyCollection(db, 'crm_tickets'), limit(10)))
       ]);
       const results: any = { tickets: [], crm_tickets: [] };
       snap1.forEach(d => results.tickets.push({ id: d.id, ...d.data() }));

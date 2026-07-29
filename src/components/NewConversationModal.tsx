@@ -7,6 +7,7 @@ import { CustomerSearchBox } from "../features/customers/components/CustomerSear
 import { NormalizedCustomer } from "../hooks/customers/useCustomerSearch";
 import { collection, getDocs, query, where, orderBy, limit } from "firebase/firestore";
 import { db } from "../firebase";
+import { companyCollection } from "../lib/companyFirestore";
 
 const DEFAULT_TEMPLATES = [
   { id: '1', text: "Hi {firstName}, how can I help you today?" },
@@ -32,7 +33,7 @@ export function NewConversationModal({ isOpen, onClose, onConversationCreated }:
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "chat_templates"));
+        const snapshot = await getDocs(companyCollection("chat_templates"));
         const fetched: {id: string, text: string}[] = [];
         snapshot.forEach((doc: any) => fetched.push({ id: doc.id, text: doc.data().text || ""}));
         if (fetched.length > 0) {
@@ -56,7 +57,7 @@ export function NewConversationModal({ isOpen, onClose, onConversationCreated }:
     
     // Fetch latest ticket context for template merging
     try {
-      const ticketsRef = collection(db, "crm_tickets");
+      const ticketsRef = companyCollection("crm_tickets");
       // Use client side sorting if index isn't ready
       const q = query(ticketsRef, where("customer_id", "==", c.customerId));
       const snapshot = await getDocs(q);

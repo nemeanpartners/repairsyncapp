@@ -45,6 +45,7 @@ import {
 } from "@/components/ui/dialog";
 import { motion, AnimatePresence } from "motion/react";
 import { format } from "date-fns";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 // Define the interface here or import it if you extracted to types.ts
 export interface PartsOrder {
@@ -160,7 +161,7 @@ export const PartsOrdersView: React.FC<PartsOrdersViewProps> = ({
         if (found) finalTicketId = found.id;
       }
 
-      await addDoc(collection(db, "parts_orders"), {
+      await addDoc(companyCollection("parts_orders"), {
         ...draft,
         ticketId: finalTicketId || null,
         uid: currentUserUid,
@@ -191,7 +192,7 @@ export const PartsOrdersView: React.FC<PartsOrdersViewProps> = ({
     newStatus: PartsOrder["status"],
   ) => {
     try {
-      await updateDoc(doc(db, "parts_orders", id), { status: newStatus });
+      await updateDoc(companyDoc("parts_orders", id), { status: newStatus });
       toast.success(`Marked as ${newStatus}`);
     } catch (e) {
       console.error(e);
@@ -201,7 +202,7 @@ export const PartsOrdersView: React.FC<PartsOrdersViewProps> = ({
 
   const handleDelete = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "parts_orders", id));
+      await deleteDoc(companyDoc("parts_orders", id));
       toast.success("Order deleted");
       setOrderToDelete(null);
     } catch (e) {

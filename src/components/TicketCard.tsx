@@ -6,6 +6,7 @@ import { Ticket } from "../types";
 import { motion } from "motion/react";
 import { doc, updateDoc, arrayUnion, arrayRemove } from "firebase/firestore";
 import { db } from "../firebase";
+import { companyDoc } from "../lib/companyFirestore";
 
 interface TicketCardProps {
   ticket: Ticket;
@@ -23,7 +24,7 @@ export function TicketCard({ ticket, onClick, variant = "full" }: TicketCardProp
     if (!ticket.id || isTagging) return;
     setIsTagging(true);
     try {
-      const ticketRef = doc(db, "crm_tickets", ticket.id.toString());
+      const ticketRef = companyDoc("crm_tickets", ticket.id.toString());
       if (isTaggedRobot) {
         await updateDoc(ticketRef, { tags: arrayRemove("Robot Vac") });
       } else {
@@ -40,7 +41,7 @@ export function TicketCard({ ticket, onClick, variant = "full" }: TicketCardProp
     e.stopPropagation();
     if (!ticket.id) return;
     try {
-      const ticketRef = doc(db, "crm_tickets", ticket.id.toString());
+      const ticketRef = companyDoc("crm_tickets", ticket.id.toString());
       const newPriority = isUrgent ? "Medium" : "Urgent";
       await updateDoc(ticketRef, { 
         priority: newPriority, 

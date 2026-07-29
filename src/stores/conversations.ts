@@ -5,6 +5,7 @@ import { ConversationMetadata, ConversationEngine, normalizePhone } from "../ser
 import { LabelEngine } from "../services/labels";
 import { RealtimeManager } from "../services/RealtimeManager";
 import { CostAnalyticsEngine } from "../services/CostAnalyticsEngine";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 interface ConversationsState {
   conversations: ConversationMetadata[];
@@ -60,7 +61,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
       set({ isLoading: true, error: null });
 
       // Fetch contacts in the background to resolve Unknown names
-      getDocs(collection(db, "crm_customers")).then((snap) => {
+      getDocs(companyCollection("crm_customers")).then((snap) => {
         CostAnalyticsEngine.recordReads("conversations_contacts_resolve", snap.size);
         snap.forEach((doc) => {
           const c = doc.data();
@@ -82,7 +83,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
             const match = contactMap.get(cleanPhone);
             if (match) {
               changed = true;
-              updateDoc(doc(db, "conversations", c.conversationId), {
+              updateDoc(companyDoc("conversations", c.conversationId), {
                 customerId: match.id,
                 customerName: match.name
               }).catch(err => console.error("Failed to auto-update conversation customer name:", err));
@@ -101,7 +102,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
         }
       }).catch(err => console.error("Failed to fetch crm_customers for contact resolve:", err));
 
-      const q = query(collection(db, "conversations"), orderBy("updatedAt", "desc"), limit(50));
+      const q = query(companyCollection("conversations"), orderBy("updatedAt", "desc"), limit(50));
 
       const activeUnsub = RealtimeManager.subscribe(
         "global_conversations_list",
@@ -154,7 +155,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
                 resolvedId = match.id;
                 
                 // Keep Firestore updated in the background
-                updateDoc(doc(db, "conversations", remote.conversationId), {
+                updateDoc(companyDoc("conversations", remote.conversationId), {
                   customerId: resolvedId,
                   customerName: resolvedName
                 }).catch(err => console.error("Failed to auto-update conversation customer name:", err));
@@ -211,7 +212,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
       set({ isLoadingMore: true });
       try {
         const q = query(
-          collection(db, "conversations"),
+          companyCollection("conversations"),
           orderBy("updatedAt", "desc"),
           startAfter(lastVisibleDoc),
           limit(50)
@@ -239,7 +240,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
               resolvedName = match.name;
               resolvedId = match.id;
               
-              updateDoc(doc(db, "conversations", d.id), {
+              updateDoc(companyDoc("conversations", d.id), {
                 customerId: resolvedId,
                 customerName: resolvedName
               }).catch(err => console.error("Failed to auto-update conversation customer name:", err));
@@ -319,7 +320,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
       }
 
       try {
-        const convRef = doc(db, "conversations", conversationId);
+        const convRef = companyDoc("conversations", conversationId);
         await setDoc(convRef, {
           labels: newLabels,
           isYourTurn: isYourTurnActive,
@@ -362,7 +363,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
       }
 
       try {
-        const convRef = doc(db, "conversations", conversationId);
+        const convRef = companyDoc("conversations", conversationId);
         await setDoc(convRef, {
           labels: newLabels,
           isUrgent: isUrgentActive,
@@ -406,7 +407,7 @@ export const useConversationsStore = create<ConversationsState>((set, get) => {
       }
 
       try {
-        const convRef = doc(db, "conversations", conversationId);
+        const convRef = companyDoc("conversations", conversationId);
         await setDoc(convRef, {
           labels: newLabels,
           isUrgent: isUrgentActive,

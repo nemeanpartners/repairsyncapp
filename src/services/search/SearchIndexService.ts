@@ -7,6 +7,7 @@
 import { Firestore, collection, getDocs, query, limit, orderBy } from "firebase/firestore";
 import { SearchCacheService } from "./SearchCacheService";
 import { SearchWorkerService } from "./SearchWorkerService";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export class SearchIndexService {
   /**
@@ -120,9 +121,9 @@ export class SearchIndexService {
 
         // Fire parallel shallow reads with tight limit clauses to prevent massive Firestore read overhead
         const [contactsSnap, crmTicketsSnap, newTicketsSnap] = await Promise.all([
-          getDocs(query(collection(db, "crm_customers"), orderBy("updated_at", "desc"), limit(100))),
-          getDocs(query(collection(db, "crm_tickets"), orderBy("created_at", "desc"), limit(100))),
-          getDocs(query(collection(db, "tickets"), orderBy("created_at", "desc"), limit(100)))
+          getDocs(query(companyCollection("crm_customers"), orderBy("updated_at", "desc"), limit(100))),
+          getDocs(query(companyCollection("crm_tickets"), orderBy("created_at", "desc"), limit(100))),
+          getDocs(query(companyCollection("tickets"), orderBy("created_at", "desc"), limit(100)))
         ]);
 
         const pulledContacts = contactsSnap.docs.map(d => ({ id: d.id, ...d.data() }));

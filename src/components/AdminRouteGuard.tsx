@@ -5,6 +5,7 @@ import { doc, getDoc } from "firebase/firestore";
 import { db } from "../firebase";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
+import { companyDoc } from "../lib/companyFirestore";
 
 export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
   const { user, loading: authLoading } = useAuth();
@@ -31,7 +32,7 @@ export function AdminRouteGuard({ children }: { children: React.ReactNode }) {
 
       if (emailBytes) {
         try {
-          const userDoc = await getDoc(doc(db, "users", emailBytes));
+          const userDoc = await getDoc(companyDoc("users", emailBytes));
           if (userDoc.exists() && userDoc.data().role === 'admin') {
             setIsAdmin(true);
           } else {

@@ -3,13 +3,14 @@ import { collection, query, orderBy, limit, onSnapshot } from "firebase/firestor
 import { db } from "../../firebase";
 import { format } from "date-fns";
 import { Mail, ArrowRight } from "lucide-react";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export function QuotesView() {
   const [inquiries, setInquiries] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const q = query(collection(db, "quote_inquiries"), orderBy("createdAt", "desc"), limit(50));
+    const q = query(companyCollection("quote_inquiries"), orderBy("createdAt", "desc"), limit(50));
     const unsubscribe = onSnapshot(q, (snapshot) => {
       setInquiries(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       setIsLoading(false);

@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { Save, Loader2 } from "lucide-react";
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 export function AutomationsSettingsForm() {
   const [smsTemplates, setSmsTemplates] = useState<{ [status: string]: string }>({});
@@ -17,7 +18,7 @@ export function AutomationsSettingsForm() {
   useEffect(() => {
     const fetchAutomations = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "sms_templates"));
+        const snapshot = await getDocs(companyCollection("sms_templates"));
         const templates: { [key: string]: string } = {};
         snapshot.forEach(d => {
           templates[d.id] = d.data().message || "";
@@ -37,7 +38,7 @@ export function AutomationsSettingsForm() {
     try {
       // Save all templates
       for (const [status, message] of Object.entries(smsTemplates)) {
-        await setDoc(doc(db, "sms_templates", status), { message });
+        await setDoc(companyDoc("sms_templates", status), { message });
       }
       toast.success("SMS Automations saved successfully");
       setIsDirty(false);

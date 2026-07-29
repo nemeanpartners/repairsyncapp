@@ -14,6 +14,7 @@ import { useAuth } from "./AuthProvider";
 import { Customer, ConversationMetadata } from "../types";
 import { RealtimeManager } from "../services/RealtimeManager";
 import { CostAnalyticsEngine } from "../services/CostAnalyticsEngine";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 interface ShopContextType {
   customers: Customer[];
@@ -39,7 +40,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
 
     // Unread messages count - specific optimized listener
     const unreadQuery = query(
-      collection(db, "conversations"), 
+      companyCollection("conversations"), 
       where("isUnread", "==", true),
       where("isArchived", "==", false)
     );
@@ -50,7 +51,7 @@ export function ShopProvider({ children }: { children: React.ReactNode }) {
     // Global Shop Settings
     const fetchSettings = async () => {
       try {
-        const orgDoc = await getDoc(doc(db, "settings", "organization"));
+        const orgDoc = await getDoc(companyDoc("settings", "organization"));
         CostAnalyticsEngine.recordReads("settings_organization", 1);
         if (orgDoc.exists()) {
            setSettings(prev => ({ ...prev, organization: orgDoc.data() }));

@@ -66,6 +66,7 @@ import {
 } from "@/components/ui/select";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { toast } from "sonner";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 const ensureDate = (date: any) => {
   if (!date) return new Date();
@@ -150,7 +151,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
     // Fetch users for admin dropdown
     if (isAdmin) {
       const fetchUsers = async () => {
-        const usersSnap = await getDocs(collection(db, "users"));
+        const usersSnap = await getDocs(companyCollection("users"));
         const users = usersSnap.docs.map((doc) => ({
           id: doc.id,
           name:
@@ -162,7 +163,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
     }
 
     const shiftsQuery = query(
-      collection(db, "shifts"),
+      companyCollection("shifts"),
       orderBy("startTime", "asc"),
     );
     const unsubscribeShifts = onSnapshot(
@@ -180,9 +181,9 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
     );
 
     const leaveRequestsQuery = isAdmin
-      ? query(collection(db, "leave_requests"), orderBy("createdAt", "desc"))
+      ? query(companyCollection("leave_requests"), orderBy("createdAt", "desc"))
       : query(
-          collection(db, "leave_requests"),
+          companyCollection("leave_requests"),
           where("userId", "==", user?.uid),
           orderBy("createdAt", "desc"),
         );
@@ -202,7 +203,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
     );
 
     const tasksQuery = query(
-      collection(db, "tasks"),
+      companyCollection("tasks"),
       where("uid", "==", user.uid),
     );
     const unsubscribeTasks = onSnapshot(
@@ -287,13 +288,13 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
 
     try {
       if (editingShift.id) {
-        await updateDoc(doc(db, "shifts", editingShift.id), {
+        await updateDoc(companyDoc("shifts", editingShift.id), {
           ...editingShift,
           updatedAt: serverTimestamp(),
         });
         toast.success("Shift updated");
       } else {
-        await addDoc(collection(db, "shifts"), {
+        await addDoc(companyCollection("shifts"), {
           ...editingShift,
           status: "published",
           createdAt: serverTimestamp(),
@@ -315,7 +316,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
     }
 
     try {
-      await addDoc(collection(db, "leave_requests"), {
+      await addDoc(companyCollection("leave_requests"), {
         ...newLeaveRequest,
         status: "pending",
         createdAt: serverTimestamp(),
@@ -331,7 +332,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
 
   const handleApproveLeave = async (id: string) => {
     try {
-      await updateDoc(doc(db, "leave_requests", id), { status: "approved" });
+      await updateDoc(companyDoc("leave_requests", id), { status: "approved" });
       toast.success("Leave request approved");
     } catch (error) {
       toast.error("Failed to update request");
@@ -340,7 +341,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
 
   const handleRejectLeave = async (id: string) => {
     try {
-      await updateDoc(doc(db, "leave_requests", id), { status: "rejected" });
+      await updateDoc(companyDoc("leave_requests", id), { status: "rejected" });
       toast.success("Leave request rejected");
     } catch (error) {
       toast.error("Failed to update request");
@@ -349,7 +350,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
 
   const handleAcceptShift = async (shift: Shift) => {
     try {
-      await updateDoc(doc(db, "shifts", shift.id), {
+      await updateDoc(companyDoc("shifts", shift.id), {
         userId: user.uid,
         userName: user.displayName || user.email.split("@")[0],
         status: "assigned",
@@ -362,7 +363,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
 
   const handleRequestSwap = async (shift: Shift) => {
     try {
-      await updateDoc(doc(db, "shifts", shift.id), {
+      await updateDoc(companyDoc("shifts", shift.id), {
         isSwapRequested: true,
         status: "on_swap",
       });
@@ -373,12 +374,12 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
   };
 
   const handlePublishShift = async (id: string) => {
-    await updateDoc(doc(db, "shifts", id), { status: "published" });
+    await updateDoc(companyDoc("shifts", id), { status: "published" });
   };
 
   const handleDeleteShift = async (id: string) => {
     if (confirm("Delete this shift?")) {
-      await deleteDoc(doc(db, "shifts", id));
+      await deleteDoc(companyDoc("shifts", id));
       toast.success("Shift deleted");
     }
   };
@@ -876,7 +877,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
                                 task.status === "completed"
                                   ? "open"
                                   : "completed";
-                              await updateDoc(doc(db, "tasks", task.id), {
+                              await updateDoc(companyDoc("tasks", task.id), {
                                 status: newStatus,
                               });
                             } catch (e) {
@@ -913,7 +914,7 @@ export const RosterSystem: React.FC<RosterSystemProps> = ({
                                 value={task.priority}
                                 onChange={async (e) => {
                                   try {
-                                    await updateDoc(doc(db, "tasks", task.id), {
+                                    await updateDoc(companyDoc("tasks", task.id), {
                                       priority: e.target.value,
                                     });
                                   } catch (error) {

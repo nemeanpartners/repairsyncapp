@@ -23,6 +23,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { HireContractsView } from "./HireContractsView";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const InvoicesView = ({ onNavigate, onOpenTicket }: { onNavigate?: (view: string) => void, onOpenTicket?: (custId?: string, tickId?: string) => void }) => {
   const navigate = useNavigate();
@@ -49,7 +50,7 @@ export const InvoicesView = ({ onNavigate, onOpenTicket }: { onNavigate?: (view:
 
   useEffect(() => {
     const q = query(
-      collection(db, "invoices"),
+      companyCollection("invoices"),
       orderBy("created_at", "desc"),
     );
     const unsub = onSnapshot(q, async (snap) => {
@@ -60,7 +61,7 @@ export const InvoicesView = ({ onNavigate, onOpenTicket }: { onNavigate?: (view:
         if (data.customer_id) {
           try {
             const cSnap = await getDoc(
-              doc(db, "crm_customers", data.customer_id),
+              companyDoc("crm_customers", data.customer_id),
             );
             if (cSnap.exists()) {
               customerName =

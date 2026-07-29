@@ -5,6 +5,7 @@ import { collection, addDoc, serverTimestamp } from "firebase/firestore";
 import { db } from "../../firebase";
 import { toast, Toaster } from "sonner";
 import { Button } from "@/components/ui/button";
+import { companyCollection } from "../../lib/companyFirestore";
 
 interface FormConfig {
   title: string;
@@ -40,7 +41,7 @@ export function PublicQuoteForm({ config = DEFAULT_CONFIG }: { config?: FormConf
     setIsSubmitting(true);
 
     try {
-      await addDoc(collection(db, "quote_inquiries"), {
+      await addDoc(companyCollection("quote_inquiries"), {
         ...formData,
         status: "new",
         createdAt: serverTimestamp(),

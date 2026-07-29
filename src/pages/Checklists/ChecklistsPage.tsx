@@ -8,6 +8,7 @@ import { toast } from 'sonner';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../../components/ui/card';
 import { Input } from '../../components/ui/input';
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 const CHECKLIST_TEMPLATES = {
   opening: [
@@ -67,7 +68,7 @@ export function ChecklistsPage() {
 
   useEffect(() => {
     const q = query(
-      collection(db, 'daily_checklists'),
+      companyCollection('daily_checklists'),
       where('date', '==', todayStr)
     );
 
@@ -99,7 +100,7 @@ export function ChecklistsPage() {
     if (!user) return;
     const docId = `${todayStr}_opening`;
     try {
-      await setDoc(doc(db, 'daily_checklists', docId), {
+      await setDoc(companyDoc('daily_checklists', docId), {
         date: todayStr,
         type: 'opening',
         tillCounts,
@@ -146,7 +147,7 @@ export function ChecklistsPage() {
     }
 
     try {
-      await setDoc(doc(db, 'daily_checklists', docId), {
+      await setDoc(companyDoc('daily_checklists', docId), {
         date: todayStr,
         type,
         completedItems: newItems,

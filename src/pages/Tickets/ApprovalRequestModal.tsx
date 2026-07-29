@@ -13,6 +13,7 @@ import { collection, addDoc } from "firebase/firestore";
 import axios from "axios";
 import { toast } from "sonner";
 import { Send, FileText } from "lucide-react";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export interface ApprovalRequestModalProps {
   isOpen: boolean;
@@ -69,7 +70,7 @@ export function ApprovalRequestModal({
     try {
       // 1. Record the estimate
       const estNum = `EST-${Math.floor(100000 + Math.random() * 900000)}`;
-      await addDoc(collection(db, "estimates"), {
+      await addDoc(companyCollection("estimates"), {
         customer_id: customerId,
         ticket_id: ticketId,
         estimate_number: estNum,
@@ -93,7 +94,7 @@ export function ApprovalRequestModal({
       });
 
       // 2. Add an internal note to the ticket
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: `Created informal estimate ${estNum} for $${Number(quoteAmount).toFixed(2)} and requested SMS approval.`,
         subject: "Estimate Requested",

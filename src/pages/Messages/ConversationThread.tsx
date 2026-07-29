@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogTrigger, DialogHeader, DialogTitle } from 
 import { InlineTaskList } from "../../components/Tasks/InlineTaskList";
 import { useNavigate, useLocation } from "react-router-dom";
 import { toast } from "sonner";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 const QUICK_RESPONSES = [
   { name: "Greeting", text: "Hi {firstName}, how can I help you today?" },
@@ -67,7 +68,7 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
   // Subscribe to live metadata for labels, isUnread, etc.
   useEffect(() => {
     if (!conversationId) return;
-    const unsub = onSnapshot(doc(db, "conversations", conversationId), (snap) => {
+    const unsub = onSnapshot(companyDoc("conversations", conversationId), (snap) => {
       if (snap.exists()) {
         setLiveConversation((prev: any) => ({
           ...prev,
@@ -94,7 +95,7 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
     if (!propConversation?.phone) return;
     const fetchCalls = async () => {
       try {
-        const qCrm = query(collection(db, 'call_logs'), where("phoneNumber", "==", propConversation.phone), limit(20));
+        const qCrm = query(companyCollection('call_logs'), where("phoneNumber", "==", propConversation.phone), limit(20));
         const snap = await getDocs(qCrm);
         const fetchedLogs = snap.docs.map(d => {
           const data = d.data();
@@ -119,7 +120,7 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
   useEffect(() => {
     const fetchTemplates = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "chat_templates"));
+        const snapshot = await getDocs(companyCollection("chat_templates"));
         const templates: {name: string, text: string}[] = [];
         snapshot.forEach(doc => {
           if (doc.data().text) {
@@ -146,8 +147,8 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
     if (liveConversation.ticketNumber) {
       const fetchTicket = async () => {
         try {
-          const qStr = query(collection(db, "crm_tickets"), where("number", "==", String(liveConversation.ticketNumber)), limit(1));
-          const qInt = query(collection(db, "crm_tickets"), where("number", "==", Number(liveConversation.ticketNumber)), limit(1));
+          const qStr = query(companyCollection("crm_tickets"), where("number", "==", String(liveConversation.ticketNumber)), limit(1));
+          const qInt = query(companyCollection("crm_tickets"), where("number", "==", Number(liveConversation.ticketNumber)), limit(1));
           
           const [snapStr, snapInt] = await Promise.all([getDocs(qStr), getDocs(qInt)]);
           const ticketDoc = snapStr.docs[0] || snapInt.docs[0];
@@ -166,7 +167,7 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
     if (liveConversation.isUnread && conversationId) {
       const markAsRead = async () => {
         try {
-          await updateDoc(doc(db, "conversations", conversationId), { isUnread: false, unreadCount: 0 });
+          await updateDoc(companyDoc("conversations", conversationId), { isUnread: false, unreadCount: 0 });
         } catch (e) {
           console.error("Failed to mark as read", e);
         }
@@ -182,8 +183,8 @@ export function ConversationThread({ conversation: propConversation, onBack }: {
     }
     if (liveConversation?.ticketNumber) {
       try {
-        const qStr = query(collection(db, "crm_tickets"), where("number", "==", String(liveConversation.ticketNumber)), limit(1));
-        const qInt = query(collection(db, "crm_tickets"), where("number", "==", Number(liveConversation.ticketNumber)), limit(1));
+        const qStr = query(companyCollection("crm_tickets"), where("number", "==", String(liveConversation.ticketNumber)), limit(1));
+        const qInt = query(companyCollection("crm_tickets"), where("number", "==", Number(liveConversation.ticketNumber)), limit(1));
         const [snapStr, snapInt] = await Promise.all([getDocs(qStr), getDocs(qInt)]);
         const ticketDoc = snapStr.docs[0] || snapInt.docs[0];
         if (ticketDoc) {

@@ -10,6 +10,7 @@ import { ScrollArea } from './ui/scroll-area';
 import { format } from 'date-fns';
 import { Loader2, Plus, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 interface CallLogModalProps {
   isOpen: boolean;
@@ -40,11 +41,11 @@ export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps
   const fetchLogsAndCustomers = async () => {
     setIsLoading(true);
     try {
-      const q = query(collection(db, 'call_logs'), orderBy('createdAt', 'desc'), limit(100));
+      const q = query(companyCollection('call_logs'), orderBy('createdAt', 'desc'), limit(100));
       const snap = await getDocs(q);
       setLogs(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
       
-      const cSnap = await getDocs(collection(db, 'crm_customers'));
+      const cSnap = await getDocs(companyCollection('crm_customers'));
       setCustomers(cSnap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     } catch (error) {
       console.error("Error fetching data:", error);
@@ -118,7 +119,7 @@ export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps
     }
     
     try {
-      await addDoc(collection(db, 'call_logs'), {
+      await addDoc(companyCollection('call_logs'), {
         ...newLog,
         createdAt: serverTimestamp(),
         userId: auth.currentUser?.uid
@@ -141,7 +142,7 @@ export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps
         label: 'Confirm',
         onClick: async () => {
           try {
-            await deleteDoc(doc(db, 'call_logs', id));
+            await deleteDoc(companyDoc('call_logs', id));
             toast.success("Call log deleted");
             fetchLogsAndCustomers();
           } catch (error) {

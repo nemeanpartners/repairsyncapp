@@ -34,6 +34,7 @@ import { Button } from "../../components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { useNavigate } from "react-router-dom";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 import {
   BarChart,
   Bar,
@@ -55,13 +56,13 @@ export function RepairsAnalyticsView() {
 
   useEffect(() => {
     const qInvoices = query(
-      collection(db, "invoices"),
+      companyCollection("invoices"),
       orderBy("created_at", "desc"),
       limit(1000)
     );
 
     const qTickets = query(
-      collection(db, "crm_tickets"),
+      companyCollection("crm_tickets"),
       orderBy("created_at", "desc"),
       limit(1000)
     );
@@ -84,7 +85,7 @@ export function RepairsAnalyticsView() {
               try {
                 // Read count tracked securely via CostAnalyticsEngine
                 const cSnap = await getDoc(
-                  doc(db, "crm_customers", data.customer_id),
+                  companyDoc("crm_customers", data.customer_id),
                 );
                 CostAnalyticsEngine.recordReads(
                   `crm_customers_${data.customer_id}`,

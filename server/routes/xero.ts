@@ -3,6 +3,7 @@ import express from 'express';
 import { getFirestore, collection, query, where, getDocs, updateDoc as firestoreUpdateDoc, setDoc as firestoreSetDoc, doc, serverTimestamp, addDoc as firestoreAddDoc, getDoc } from 'firebase/firestore';
 import { getDb } from '../utils/firebase.js';
 import { xero, getXeroEngine } from '../services/xero.js';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 async function updateDoc(ref: any, data: any) { return firestoreUpdateDoc(ref, { uid: 'api-server', ...data }); }
 async function setDoc(ref: any, data: any, options?: any) { return firestoreSetDoc(ref, { uid: 'api-server', ...data }, options || {}); }
@@ -30,7 +31,7 @@ xeroRouter.post('/api/xero/sync/process', async (req, res) => {
 xeroRouter.get('/api/xero/status', async (req, res) => {
   try {
     const db = getDb();
-    const snap = await getDoc(doc(db, 'crm_integrations', 'xero'));
+    const snap = await getDoc(companyDoc(db, 'crm_integrations', 'xero'));
     if (snap.exists()) {
       res.json({ status: 'active' });
     } else {
@@ -79,7 +80,7 @@ xeroRouter.get('/api/auth/xero/callback', async (req, res) => {
         return res.status(500).send('No Xero tenants found. Please connect an organization.');
     }
     
-    await setDoc(doc(db, 'crm_integrations', 'xero'), { 
+    await setDoc(companyDoc(db, 'crm_integrations', 'xero'), { 
       tokenSet: JSON.parse(JSON.stringify(tokenSet)), 
       tenantId: xero.tenants[0].tenantId, 
       updated_at: serverTimestamp() 
@@ -97,7 +98,7 @@ xeroRouter.post('/api/xero/sync/customer', async (req, res) => {
     const { customerId } = req.body;
     if (!customerId) return res.status(400).send("customerId is required");
     
-    const jobRef = await addDoc(collection(db, 'xero_sync_queue'), {
+    const jobRef = await addDoc(companyCollection(db, 'xero_sync_queue'), {
       entity_type: 'CUSTOMER',
       entity_id: customerId,
       operation: 'CREATE',
@@ -138,7 +139,7 @@ xeroRouter.post('/api/xero/webhook', express.raw({ type: 'application/json' }), 
     
     for (const event of payload.events) {
       if (event.eventCategory === 'INVOICE' && event.eventType === 'UPDATE') {
-        const invQ = query(collection(db, 'invoices'), where('xero_invoice_id', '==', event.resourceId));
+        const invQ = query(companyCollection(db, 'invoices'), where('xero_invoice_id', '==', event.resourceId));
         const invSnap = await getDocs(invQ);
         if (!invSnap.empty) {
           const localInv = invSnap.docs[0];

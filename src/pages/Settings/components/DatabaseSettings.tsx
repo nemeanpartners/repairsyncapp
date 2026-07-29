@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Download, AlertTriangle, Loader2 } from 'lucide-react';
 import { collection, getDocs } from 'firebase/firestore';
 import { db } from '../../../firebase';
+import { companyCollection } from "../../../lib/companyFirestore";
 
 export function DatabaseSettings() {
   const [isExporting, setIsExporting] = useState(false);
@@ -11,7 +12,7 @@ export function DatabaseSettings() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      const ticketsSnap = await getDocs(collection(db, 'tickets'));
+      const ticketsSnap = await getDocs(companyCollection('tickets'));
       
       let csv = "ID,Customer Name,Device,Status,Created At\n";
       

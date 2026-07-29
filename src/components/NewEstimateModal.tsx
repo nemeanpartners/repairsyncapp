@@ -18,6 +18,7 @@ import { CustomerSearchBox } from "../features/customers/components/CustomerSear
 import { NormalizedCustomer } from "../hooks/customers/useCustomerSearch";
 import { useCatalogAndSuppliers } from "../hooks/useCatalogAndSuppliers";
 import { useNavigate } from "react-router-dom";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const NewEstimateModal = ({
   isOpen,
@@ -138,17 +139,17 @@ export const NewEstimateModal = ({
 
       if (isNewCustomer || !finalCustId) {
         custDataToSave.created_at = new Date().toISOString();
-        const crmRef = await addDoc(collection(db, 'crm_customers'), custDataToSave);
+        const crmRef = await addDoc(companyCollection('crm_customers'), custDataToSave);
         finalCustId = crmRef.id;
       } else {
-        await setDoc(doc(db, 'crm_customers', finalCustId), custDataToSave, { merge: true });
+        await setDoc(companyDoc('crm_customers', finalCustId), custDataToSave, { merge: true });
       }
 
       // 2. Create Estimate
       const subtotal = calculateSubtotal();
       const total = calculateTotal();
       
-      const docRef = await addDoc(collection(db, "estimates"), {
+      const docRef = await addDoc(companyCollection("estimates"), {
         customer_id: finalCustId,
         ticket_id: prefillTicketId || null,
         estimate_number: `EST-${Math.floor(1000000 + Math.random() * 9000000)}`,

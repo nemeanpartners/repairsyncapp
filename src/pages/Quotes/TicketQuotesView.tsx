@@ -17,6 +17,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { toast } from "sonner";
+import { companyCollection } from "../../lib/companyFirestore";
 
 interface LineItem {
   id?: string;
@@ -51,7 +52,7 @@ export function TicketQuotesView() {
 
   useEffect(() => {
     // Listen to estimates
-    const estimatesQuery = query(collection(db, "estimates"), orderBy("createdAt", "desc"), limit(1000));
+    const estimatesQuery = query(companyCollection("estimates"), orderBy("createdAt", "desc"), limit(1000));
     const unsubscribeEstimates = onSnapshot(
       estimatesQuery,
       (snapshot) => {
@@ -70,7 +71,7 @@ export function TicketQuotesView() {
     );
 
     // Listen to customers to resolve customer names
-    const customersQuery = query(collection(db, "crm_customers"), limit(2000));
+    const customersQuery = query(companyCollection("crm_customers"), limit(2000));
     const unsubscribeCustomers = onSnapshot(
       customersQuery,
       (snapshot) => {

@@ -4,6 +4,7 @@ import { doc, getDoc, setDoc, updateDoc, collection, serverTimestamp } from 'fir
 import { CheckCircle2, Circle, XCircle, AlertCircle, Save, Loader2, Camera, HelpCircle, ChevronDown, ChevronUp } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 interface QCTemplate {
   id: string;
@@ -91,7 +92,7 @@ export function QCChecklist({ ticketId, category }: QCChecklistProps) {
     // load existing QC data
     const loadQC = async () => {
       try {
-        const docRef = doc(db, 'crm_tickets', ticketId, 'qc_checklist', 'current');
+        const docRef = companyDoc('crm_tickets', ticketId, 'qc_checklist', 'current');
         const snap = await getDoc(docRef);
         if (snap.exists()) {
           const data = snap.data();
@@ -121,7 +122,7 @@ export function QCChecklist({ ticketId, category }: QCChecklistProps) {
     if (!template) return;
     setIsSaving(true);
     try {
-      const docRef = doc(db, 'crm_tickets', ticketId, 'qc_checklist', 'current');
+      const docRef = companyDoc('crm_tickets', ticketId, 'qc_checklist', 'current');
       
       const payload = {
         templateId: template.id,
@@ -138,7 +139,7 @@ export function QCChecklist({ ticketId, category }: QCChecklistProps) {
       const passedCount = Object.values(results).filter(s => s === 'pass').length;
       const failedCount = Object.values(results).filter(s => s === 'fail').length;
       
-      await setDoc(doc(collection(db, 'crm_notes')), {
+      await setDoc(doc(companyCollection('crm_notes')), {
          ticket_id: ticketId,
          body: `<strong>QC Checklist Updated</strong><br/> Passed: ${passedCount}, Failed: ${failedCount}`,
          subject: "QC Report",

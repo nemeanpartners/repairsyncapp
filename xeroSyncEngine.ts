@@ -1,5 +1,6 @@
 import { XeroClient } from 'xero-node';
 import { getFirestore, collection, query, where, getDocs, updateDoc as firestoreUpdateDoc, doc, increment, addDoc as firestoreAddDoc, serverTimestamp, getDoc, setDoc as firestoreSetDoc } from 'firebase/firestore';
+import { companyCollection, companyDoc } from './server/companyFirestore.js';
 
 
 async function addDoc(colRef: any, data: any) { return firestoreAddDoc(colRef, { uid: 'api-server', ...data }); }
@@ -17,7 +18,7 @@ export class XeroSyncEngine {
 
   // Ensures we have a valid token
   async ensureToken() {
-    const snap = await getDoc(doc(this.db, 'crm_integrations', 'xero'));
+    const snap = await getDoc(companyDoc(this.db, 'crm_integrations', 'xero'));
     const data = snap.data();
     if (!data || !data.tokenSet) throw new Error("Xero not connected");
     
@@ -29,7 +30,7 @@ export class XeroSyncEngine {
     await this.xero.setTokenSet(data.tokenSet);
     if (this.xero.readTokenSet().expired()) {
       const ts = await this.xero.refreshToken();
-      await updateDoc(doc(this.db, 'crm_integrations', 'xero'), { tokenSet: JSON.parse(JSON.stringify(ts)) });
+      await updateDoc(companyDoc(this.db, 'crm_integrations', 'xero'), { tokenSet: JSON.parse(JSON.stringify(ts)) });
       return data.tenantId;
     }
     return data.tenantId;
@@ -40,7 +41,7 @@ export class XeroSyncEngine {
     console.log(`[XeroSyncEngine] Polling queue...`);
     try {
       const q = query(
-        collection(this.db, 'xero_sync_queue'), 
+        companyCollection(this.db, 'xero_sync_queue'), 
         where('status', '==', 'PENDING')
       );
       const queueSnap = await getDocs(q);
@@ -92,7 +93,7 @@ export class XeroSyncEngine {
   }
 
   async syncInvoiceCreate(invoiceId: string, tenantId: string) {
-    const invSnap = await getDoc(doc(this.db, 'invoices', invoiceId));
+    const invSnap = await getDoc(companyDoc(this.db, 'invoices', invoiceId));
     if (!invSnap.exists()) throw new Error("Invoice not found locally");
     const invData = invSnap.data();
 
@@ -123,7 +124,7 @@ export class XeroSyncEngine {
     const createdXeroInvoice = response.body.invoices?.[0];
     
     if (createdXeroInvoice) {
-      await updateDoc(doc(this.db, 'invoices', invoiceId), {
+      await updateDoc(companyDoc(this.db, 'invoices', invoiceId), {
         xero_invoice_id: createdXeroInvoice.invoiceID,
         status: 'AUTHORISED',
         sync_status: 'SYNCED',
@@ -135,11 +136,11 @@ export class XeroSyncEngine {
   }
 
   async syncPaymentCreate(paymentId: string, tenantId: string) {
-    const paySnap = await getDoc(doc(this.db, 'payments', paymentId));
+    const paySnap = await getDoc(companyDoc(this.db, 'payments', paymentId));
     if (!paySnap.exists()) throw new Error("Payment not found locally");
     const payData = paySnap.data();
 
-    const invSnap = await getDoc(doc(this.db, 'invoices', payData.invoice_id));
+    const invSnap = await getDoc(companyDoc(this.db, 'invoices', payData.invoice_id));
     if (!invSnap.exists() || !invSnap.data().xero_invoice_id) {
        throw new Error("Target invoice is not synced to Xero yet");
     }
@@ -156,7 +157,7 @@ export class XeroSyncEngine {
     const createdPayment = response.body.payments?.[0];
 
     if (createdPayment) {
-      await updateDoc(doc(this.db, 'payments', paymentId), {
+      await updateDoc(companyDoc(this.db, 'payments', paymentId), {
         xero_payment_id: createdPayment.paymentID,
         status: 'RECONCILED',
         sync_status: 'SYNCED'
@@ -165,7 +166,7 @@ export class XeroSyncEngine {
   }
 
   async ensureCustomerSynced(customerId: string, tenantId: string): Promise<string> {
-    const custSnap = await getDoc(doc(this.db, 'crm_customers', customerId));
+    const custSnap = await getDoc(companyDoc(this.db, 'crm_customers', customerId));
     if (!custSnap.exists()) throw new Error("Customer not found locally");
     const custData = custSnap.data();
 
@@ -178,7 +179,7 @@ export class XeroSyncEngine {
        const searchRes = await this.xero.accountingApi.getContacts(tenantId, undefined, `EmailAddress=="${custData.email}"`);
        if (searchRes.body.contacts && searchRes.body.contacts.length > 0) {
          const foundId = searchRes.body.contacts[0].contactID;
-         await updateDoc(doc(this.db, 'crm_customers', customerId), { xero_contact_id: foundId, sync_status: 'SYNCED' });
+         await updateDoc(companyDoc(this.db, 'crm_customers', customerId), { xero_contact_id: foundId, sync_status: 'SYNCED' });
          return foundId!;
        }
     }
@@ -195,7 +196,7 @@ export class XeroSyncEngine {
     const createdId = ncRes.body.contacts?.[0]?.contactID;
     if (!createdId) throw new Error("Failed to create Xero Contact");
     
-    await updateDoc(doc(this.db, 'crm_customers', customerId), { xero_contact_id: createdId, sync_status: 'SYNCED' });
+    await updateDoc(companyDoc(this.db, 'crm_customers', customerId), { xero_contact_id: createdId, sync_status: 'SYNCED' });
     return createdId;
   }
   
@@ -256,7 +257,7 @@ export class XeroSyncEngine {
     try {
       const todayString = new Date().toISOString().split('T')[0];
       const q = query(
-        collection(this.db, 'hire_contracts'),
+        companyCollection(this.db, 'hire_contracts'),
         where('status', '==', 'ACTIVE'),
         where('next_billing_date', '<=', todayString)
       );
@@ -267,11 +268,11 @@ export class XeroSyncEngine {
         const idempotencyKey = `billing_${contractDoc.id}_${contract.next_billing_date}`;
         
         // Skip if already processed
-        const auditSnap = await getDoc(doc(this.db, 'audit_logs', idempotencyKey));
+        const auditSnap = await getDoc(companyDoc(this.db, 'audit_logs', idempotencyKey));
         if (auditSnap.exists()) continue;
 
         // Generate Invoice
-        const invRef = await addDoc(collection(this.db, 'invoices'), {
+        const invRef = await addDoc(companyCollection(this.db, 'invoices'), {
           customer_id: contract.customer_id,
           invoice_number: `REC-${Date.now()}`,
           status: 'LOCAL_DRAFT',
@@ -302,7 +303,7 @@ export class XeroSyncEngine {
         });
 
         // Write Audit Log
-        await setDoc(doc(this.db, 'audit_logs', idempotencyKey), {
+        await setDoc(companyDoc(this.db, 'audit_logs', idempotencyKey), {
           contract_id: contractDoc.id,
           invoice_id: invRef.id,
           billing_date: contract.next_billing_date,

@@ -1,5 +1,6 @@
 
 import { collection, getDocs, doc, writeBatch, Firestore } from 'firebase/firestore';
+import { companyCollection, companyDoc } from "./companyFirestore";
 
 export function normalizeString(str: string): string {
   if (!str) return '';
@@ -53,7 +54,7 @@ export async function performIndexRebuild(
   db: Firestore, 
   onProgress: (progress: number) => void
 ): Promise<void> {
-  const snap = await getDocs(collection(db, 'crm_customers'));
+  const snap = await getDocs(companyCollection('crm_customers'));
   const total = snap.docs.length;
   let count = 0;
   
@@ -63,7 +64,7 @@ export async function performIndexRebuild(
     
     chunk.forEach(d => {
       const data = d.data();
-      batch.update(doc(db, 'crm_customers', d.id), {
+      batch.update(companyDoc('crm_customers', d.id), {
         normalizedName: normalizeString(`${data.firstname || ''} ${data.lastname || ''}`),
         strippedPhone: stripPhone(data.mobile || data.phone || ''),
         searchContent: generateSearchableString(data),

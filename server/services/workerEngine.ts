@@ -1,6 +1,7 @@
 import { getFirestore, collection, query, where, getDocs, doc, updateDoc as firestoreUpdateDoc, deleteDoc } from "firebase/firestore";
 import { getDb } from "../utils/firebase.js";
 import { getRecentTickets } from "./repairshoprService.js";
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 async function updateDoc(ref: any, data: any) {
   return firestoreUpdateDoc(ref, { uid: 'api-server', ...data });
@@ -64,7 +65,7 @@ export class WorkerEngine {
 
     try {
       const q = query(
-        collection(db, "xero_sync_queue"),
+        companyCollection(db, "xero_sync_queue"),
         where("status", "==", "pending") // Or where error count < max
       );
       

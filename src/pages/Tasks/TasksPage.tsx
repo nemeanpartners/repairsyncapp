@@ -14,6 +14,7 @@ import { db } from "../../firebase";
 import { useAuth } from "../../providers/AuthProvider";
 import { TasksView } from "../../components/TasksView";
 import { useNavigate } from "react-router-dom";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 export function TasksPage() {
   const [tasks, setTasks] = useState<any[]>([]);
@@ -25,7 +26,7 @@ export function TasksPage() {
 
   useEffect(() => {
     const unsub = onSnapshot(
-      query(collection(db, "tasks"), limit(2000)),
+      query(companyCollection("tasks"), limit(2000)),
       (snap) => {
         setTasks(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       },
@@ -35,7 +36,7 @@ export function TasksPage() {
     );
 
     const unsubCustomers = onSnapshot(
-      query(collection(db, "crm_customers"), limit(2000)),
+      query(companyCollection("crm_customers"), limit(2000)),
       (snap) => {
         setCustomers(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
       },
@@ -45,7 +46,7 @@ export function TasksPage() {
     );
 
     const unsubCategories = onSnapshot(
-      query(collection(db, "task_categories")),
+      query(companyCollection("task_categories")),
       (snap) => {
         setCategories(
           snap.docs
@@ -71,30 +72,30 @@ export function TasksPage() {
 
   const createTask = async (payload: any) => {
     const id = crypto.randomUUID();
-    await setDoc(doc(db, "tasks", id), {
+    await setDoc(companyDoc("tasks", id), {
       ...payload,
       createdAt: new Date().toISOString(),
     });
   };
 
   const updateTask = async (id: string, updates: any) => {
-    await updateDoc(doc(db, "tasks", id), updates);
+    await updateDoc(companyDoc("tasks", id), updates);
   };
 
   const deleteTask = async (id: string) => {
-    await deleteDoc(doc(db, "tasks", id));
+    await deleteDoc(companyDoc("tasks", id));
   };
 
   const createCategory = async (name: string) => {
     const id = crypto.randomUUID();
-    await setDoc(doc(db, "task_categories", id), {
+    await setDoc(companyDoc("task_categories", id), {
       name,
       createdAt: new Date().toISOString(),
     });
   };
 
   const deleteCategory = async (id: string) => {
-    await deleteDoc(doc(db, "task_categories", id));
+    await deleteDoc(companyDoc("task_categories", id));
   };
 
   const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
@@ -105,7 +106,7 @@ export function TasksPage() {
     const { getDocs, query, collection, where } =
       await import("firebase/firestore");
     const q = query(
-      collection(db, "crm_tickets"),
+      companyCollection("crm_tickets"),
       where("customer_id", "==", customerId),
     );
     const snap = await getDocs(q);

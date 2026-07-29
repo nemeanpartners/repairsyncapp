@@ -7,6 +7,7 @@ import { NewCustomerModal } from "../../features/customers/components/NewCustome
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { getCountFromServer, collection } from "firebase/firestore";
 import { db } from "../../firebase";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export function CustomerListView() {
   const navigate = useNavigate();
@@ -17,7 +18,7 @@ export function CustomerListView() {
   const [totalCount, setTotalCount] = useState<number | null>(null);
 
   useEffect(() => {
-    getCountFromServer(collection(db, "crm_customers"))
+    getCountFromServer(companyCollection("crm_customers"))
       .then(snap => setTotalCount(snap.data().count))
       .catch(console.error);
   }, []);

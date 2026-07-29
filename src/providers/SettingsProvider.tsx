@@ -1,21 +1,19 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
-import { db } from '../firebase';
-import { doc, getDoc, setDoc, onSnapshot, updateDoc, collection } from 'firebase/firestore';
+import { doc, setDoc, onSnapshot } from 'firebase/firestore';
 import { 
   GeneralSettings, NotificationSettings, BrandingSettings, 
   AiSettings, SecuritySettings, AppSettings 
 } from '../types/settings';
 import { toast } from 'sonner';
 import { useAuth } from './AuthProvider';
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 interface SettingsContextType {
   settings: AppSettings | null;
   loading: boolean;
   updateSettings: <K extends keyof AppSettings>(section: K, data: Partial<AppSettings[K]>) => Promise<void>;
-  orgId: string;
+  companyId: string;
 }
-
-const DEFAULT_ORG_ID = 'default';
 
 const SettingsContext = createContext<SettingsContextType | undefined>(undefined);
 
@@ -57,10 +55,10 @@ const DEFAULT_SETTINGS: AppSettings = {
 };
 
 export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
   const [settings, setSettings] = useState<AppSettings | null>(null);
   const [loading, setLoading] = useState(true);
-  const orgId = DEFAULT_ORG_ID;
+  const companyId = profile?.companyId || 'default';
 
   useEffect(() => {
     if (!user) {
@@ -85,7 +83,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     let initializedSections = 0;
 
     const unsubs = sections.map(section => {
-      const docRef = doc(db, 'organizations', orgId, 'settings', section);
+      const docRef = companyDoc('settings', section);
       
       return onSnapshot(docRef, (snapshot) => {
         if (snapshot.exists()) {
@@ -119,11 +117,11 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
     return () => {
       unsubs.forEach(unsub => unsub());
     };
-  }, [orgId]);
+  }, [user, companyId]);
 
   const updateSettings = async <K extends keyof AppSettings>(section: K, data: Partial<AppSettings[K]>) => {
     try {
-      const docRef = doc(db, 'organizations', orgId, 'settings', section);
+      const docRef = companyDoc('settings', section);
       // Optimistic update
       setSettings(prev => prev ? {
         ...prev,
@@ -133,7 +131,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
       await setDoc(docRef, data, { merge: true });
 
       // Audit log entry
-      const auditRef = doc(collection(db, 'organizations', orgId, 'audit_logs'));
+      const auditRef = doc(companyCollection('audit_logs'));
       await setDoc(auditRef, {
         action: 'UPDATE_SETTINGS',
         section,
@@ -149,7 +147,7 @@ export const SettingsProvider: React.FC<{ children: ReactNode }> = ({ children }
   };
 
   return (
-    <SettingsContext.Provider value={{ settings, loading, updateSettings, orgId }}>
+    <SettingsContext.Provider value={{ settings, loading, updateSettings, companyId }}>
       {children}
     </SettingsContext.Provider>
   );

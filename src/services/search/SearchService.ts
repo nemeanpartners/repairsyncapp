@@ -20,6 +20,7 @@ import { SearchCacheService } from "./SearchCacheService";
 import { SearchWorkerService } from "./SearchWorkerService";
 import { SearchIndexService } from "./SearchIndexService";
 import { SearchAnalyticsService } from "./SearchAnalyticsService";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export interface UnifiedSearchResult {
   contacts: any[];
@@ -90,22 +91,22 @@ export class SearchService {
 
         const customerQueries = [];
         if (firstWord) {
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("firstName", ">=", firstWord), where("firstName", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("firstName", ">=", capitalizedFirstWord), where("firstName", "<=", capitalizedFirstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("lastName", ">=", firstWord), where("lastName", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("lastName", ">=", capitalizedFirstWord), where("lastName", "<=", capitalizedFirstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("firstname", ">=", firstWord), where("firstname", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("lastname", ">=", firstWord), where("lastname", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("businessName", ">=", firstWord), where("businessName", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
-          customerQueries.push(getDocs(firestoreQuery(collection(db, "crm_customers"), where("businessName", ">=", capitalizedFirstWord), where("businessName", "<=", capitalizedFirstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("firstName", ">=", firstWord), where("firstName", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("firstName", ">=", capitalizedFirstWord), where("firstName", "<=", capitalizedFirstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("lastName", ">=", firstWord), where("lastName", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("lastName", ">=", capitalizedFirstWord), where("lastName", "<=", capitalizedFirstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("firstname", ">=", firstWord), where("firstname", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("lastname", ">=", firstWord), where("lastname", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("businessName", ">=", firstWord), where("businessName", "<=", firstWord + "\uf8ff"), firestoreLimit(15))));
+          customerQueries.push(getDocs(firestoreQuery(companyCollection("crm_customers"), where("businessName", ">=", capitalizedFirstWord), where("businessName", "<=", capitalizedFirstWord + "\uf8ff"), firestoreLimit(15))));
         }
 
         const ticketQueries = [];
         if (ticketNumStr) {
-          ticketQueries.push(getDocs(firestoreQuery(collection(db, "crm_tickets"), where("number", "==", ticketNumStr), firestoreLimit(10))));
-          ticketQueries.push(getDocs(firestoreQuery(collection(db, "crm_tickets"), where("number", "==", Number(ticketNumStr)), firestoreLimit(10))));
-          ticketQueries.push(getDocs(firestoreQuery(collection(db, "tickets"), where("number", "==", ticketNumStr), firestoreLimit(10))));
-          ticketQueries.push(getDocs(firestoreQuery(collection(db, "tickets"), where("number", "==", Number(ticketNumStr)), firestoreLimit(10))));
+          ticketQueries.push(getDocs(firestoreQuery(companyCollection("crm_tickets"), where("number", "==", ticketNumStr), firestoreLimit(10))));
+          ticketQueries.push(getDocs(firestoreQuery(companyCollection("crm_tickets"), where("number", "==", Number(ticketNumStr)), firestoreLimit(10))));
+          ticketQueries.push(getDocs(firestoreQuery(companyCollection("tickets"), where("number", "==", ticketNumStr), firestoreLimit(10))));
+          ticketQueries.push(getDocs(firestoreQuery(companyCollection("tickets"), where("number", "==", Number(ticketNumStr)), firestoreLimit(10))));
         }
 
         const [custSnaps, tickSnaps] = await Promise.all([

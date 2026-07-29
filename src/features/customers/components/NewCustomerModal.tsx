@@ -9,6 +9,7 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { SearchIndexService } from '../../../services/search/SearchIndexService';
 import { normalizePhone } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { companyCollection } from "../../../lib/companyFirestore";
 
 interface NewCustomerModalProps {
   isOpen: boolean;
@@ -57,7 +58,7 @@ export function NewCustomerModal({ isOpen, onOpenChange, onCustomerCreated }: Ne
         updated_at: serverTimestamp()
       };
       
-      const docRef = await addDoc(collection(db, 'crm_customers'), data);
+      const docRef = await addDoc(companyCollection('crm_customers'), data);
       
       // Update local index cache
       await SearchIndexService.recordModified({ id: docRef.id, ...data }, 'contacts');

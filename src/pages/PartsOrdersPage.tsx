@@ -3,6 +3,7 @@ import { collection, query, onSnapshot, orderBy, limit } from "firebase/firestor
 import { db } from "../firebase";
 import { useAuth } from "../providers/AuthProvider";
 import { PartsOrdersView, PartsOrder } from "../components/PartsOrdersView";
+import { companyCollection } from "../lib/companyFirestore";
 
 export function PartsOrdersPage() {
   const { user } = useAuth();
@@ -11,7 +12,7 @@ export function PartsOrdersPage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "parts_orders"), orderBy("createdAt", "desc"), limit(1000));
+    const q = query(companyCollection("parts_orders"), orderBy("createdAt", "desc"), limit(1000));
     const unsub = onSnapshot(q, (snap) => {
       setOrders(snap.docs.map(doc => ({ id: doc.id, ...doc.data() } as PartsOrder)));
     }, (error) => {
@@ -22,7 +23,7 @@ export function PartsOrdersPage() {
 
   useEffect(() => {
     if (!user) return;
-    const q = query(collection(db, "crm_tickets"), orderBy("created_at", "desc"), limit(2000));
+    const q = query(companyCollection("crm_tickets"), orderBy("created_at", "desc"), limit(2000));
     const unsub = onSnapshot(q, (snap) => {
       setTickets(snap.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     }, (error) => {

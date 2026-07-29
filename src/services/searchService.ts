@@ -8,6 +8,7 @@ import {
 import { db } from "../firebase";
 import Fuse from "fuse.js";
 import { normalizeString, stripPhone } from "../lib/search-utils";
+import { companyCollection } from "../lib/companyFirestore";
 
 export interface SearchResult {
   id: string;
@@ -128,13 +129,13 @@ export class SearchService {
     const queries = [];
     
     if (stripped.length >= 4) {
-      queries.push(getDocs(query(collection(db, "crm_customers"), where("strippedPhone", ">=", stripped), where("strippedPhone", "<=", stripped + '\uf8ff'), limit(15))));
+      queries.push(getDocs(query(companyCollection("crm_customers"), where("strippedPhone", ">=", stripped), where("strippedPhone", "<=", stripped + '\uf8ff'), limit(15))));
     }
 
-    queries.push(getDocs(query(collection(db, "crm_customers"), where("normalizedName", ">=", term), where("normalizedName", "<=", term + '\uf8ff'), limit(15))));
+    queries.push(getDocs(query(companyCollection("crm_customers"), where("normalizedName", ">=", term), where("normalizedName", "<=", term + '\uf8ff'), limit(15))));
 
     if (!/^\d+$/.test(term)) {
-      queries.push(getDocs(query(collection(db, "crm_customers"), where("firstname", ">=", term), where("firstname", "<=", term + '\uf8ff'), limit(10))));
+      queries.push(getDocs(query(companyCollection("crm_customers"), where("firstname", ">=", term), where("firstname", "<=", term + '\uf8ff'), limit(10))));
     }
 
     const snapshots = await Promise.all(queries);
@@ -168,11 +169,11 @@ export class SearchService {
     const queries = [];
 
     if (/^\d+$/.test(term)) {
-      queries.push(getDocs(query(collection(db, "crm_tickets"), where("number", "==", parseInt(term)), limit(5))));
+      queries.push(getDocs(query(companyCollection("crm_tickets"), where("number", "==", parseInt(term)), limit(5))));
     }
 
     if (term.length >= 6) {
-      queries.push(getDocs(query(collection(db, "crm_tickets"), where("device_imei", ">=", term), where("device_imei", "<=", term + '\uf8ff'), limit(10))));
+      queries.push(getDocs(query(companyCollection("crm_tickets"), where("device_imei", ">=", term), where("device_imei", "<=", term + '\uf8ff'), limit(10))));
     }
 
     const snapshots = await Promise.all(queries);

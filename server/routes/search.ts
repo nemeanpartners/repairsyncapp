@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { getFirestore, collection, query, orderBy, limit, getDocs, getDoc, where, doc, updateDoc, startAfter } from 'firebase/firestore';
 import { getDb } from '../utils/firebase.js';
 import { normalizePhone } from '../utils/phone.js';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 export const searchRouter = Router();
 
@@ -18,7 +19,7 @@ searchRouter.post('/api/crm/customers/migrate-normalization', async (req, res) =
       const cursorId = req.body.cursorId;
 
       const db = getDb();
-      const colRef = collection(db, 'crm_customers');
+      const colRef = companyCollection(db, 'crm_customers');
       
       let q = query(colRef, orderBy('createdAt', 'desc'), limit(batchSize));
       
@@ -71,7 +72,7 @@ searchRouter.post('/api/crm/customers/migrate-normalization', async (req, res) =
           };
 
           if (!isDryRun) {
-            const docRef = doc(db, 'crm_customers', rawId);
+            const docRef = companyDoc(db, 'crm_customers', rawId);
             await updateDoc(docRef, payload);
           }
           updated++;
@@ -124,7 +125,7 @@ searchRouter.get('/api/crm/customers/search', async (req, res) => {
     try {
       const searchTerm = String(req.query.q || '').trim().toLowerCase();
       const db = getDb();
-      const col = collection(db, 'crm_customers');
+      const col = companyCollection(db, 'crm_customers');
       
       if (!searchTerm) {
           const q = query(col, limit(50));
@@ -180,10 +181,10 @@ searchRouter.get('/api/crm/customers/search', async (req, res) => {
       if (/^\d+$/.test(ticketNumStr)) {
          promises.push((async () => {
              console.log("Checking ticket for:", ticketNumStr);
-             const tqStr = query(collection(db, 'crm_tickets'), where('number', '==', ticketNumStr), limit(2));
-             const tqNum = query(collection(db, 'crm_tickets'), where('number', '==', Number(ticketNumStr)), limit(2));
-             const ntqStr = query(collection(db, 'tickets'), where('number', '==', ticketNumStr), limit(2));
-             const ntqNum = query(collection(db, 'tickets'), where('number', '==', Number(ticketNumStr)), limit(2));
+             const tqStr = query(companyCollection(db, 'crm_tickets'), where('number', '==', ticketNumStr), limit(2));
+             const tqNum = query(companyCollection(db, 'crm_tickets'), where('number', '==', Number(ticketNumStr)), limit(2));
+             const ntqStr = query(companyCollection(db, 'tickets'), where('number', '==', ticketNumStr), limit(2));
+             const ntqNum = query(companyCollection(db, 'tickets'), where('number', '==', Number(ticketNumStr)), limit(2));
              
              const [strSnap, numSnap, nStrSnap, nNumSnap] = await Promise.all([getDocsSafe(tqStr), getDocsSafe(tqNum), getDocsSafe(ntqStr), getDocsSafe(ntqNum)]);
              const matchedCustomerIds = new Set<string>();
@@ -195,7 +196,7 @@ searchRouter.get('/api/crm/customers/search', async (req, res) => {
              
              console.log("matchedCustomerIds size:", matchedCustomerIds.size);
              if (matchedCustomerIds.size > 0) {
-                 const idDocsOpts = Array.from(matchedCustomerIds).map(cid => getDoc(doc(db, 'crm_customers', cid)).catch(() => null));
+                 const idDocsOpts = Array.from(matchedCustomerIds).map(cid => getDoc(companyDoc(db, 'crm_customers', cid)).catch(() => null));
                  const cDocs = await Promise.all(idDocsOpts);
                  // Format to pretend they are query docs
                  return { docs: cDocs.filter((d: any) => d && d.exists()).map((d: any) => ({ id: d!.id, data: d!.data() })) };
@@ -261,31 +262,31 @@ searchRouter.get('/api/crm/search', async (req, res) => {
 
         const cQueries = [];
         if (firstWord) {
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('firstName', '>=', firstWord), where('firstName', '<=', firstWord + '\uf8ff'), limit(20))));
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('firstName', '>=', capitalizedFirstWord), where('firstName', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('lastName', '>=', firstWord), where('lastName', '<=', firstWord + '\uf8ff'), limit(20))));
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('lastName', '>=', capitalizedFirstWord), where('lastName', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('firstname', '>=', firstWord), where('firstname', '<=', firstWord + '\uf8ff'), limit(20))));
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('lastname', '>=', firstWord), where('lastname', '<=', firstWord + '\uf8ff'), limit(20))));
-            cQueries.push(getDocsSafe(query(collection(db, 'crm_customers'), where('phone', '==', qNorm), limit(10))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('firstName', '>=', firstWord), where('firstName', '<=', firstWord + '\uf8ff'), limit(20))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('firstName', '>=', capitalizedFirstWord), where('firstName', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('lastName', '>=', firstWord), where('lastName', '<=', firstWord + '\uf8ff'), limit(20))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('lastName', '>=', capitalizedFirstWord), where('lastName', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('firstname', '>=', firstWord), where('firstname', '<=', firstWord + '\uf8ff'), limit(20))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('lastname', '>=', firstWord), where('lastname', '<=', firstWord + '\uf8ff'), limit(20))));
+            cQueries.push(getDocsSafe(query(companyCollection(db, 'crm_customers'), where('phone', '==', qNorm), limit(10))));
         }
 
         const tQueries = [];
         if (ticketNumStr) {
-            tQueries.push(getDocsSafe(query(collection(db, 'tickets'), where('number', '>=', ticketNumStr), where('number', '<=', ticketNumStr + '\uf8ff'), limit(20))));
-            tQueries.push(getDocsSafe(query(collection(db, 'crm_tickets'), where('number', '>=', ticketNumStr), where('number', '<=', ticketNumStr + '\uf8ff'), limit(20))));
-            tQueries.push(getDocsSafe(query(collection(db, 'crm_tickets'), where('number', '==', Number(ticketNumStr)), limit(20))));
-            tQueries.push(getDocsSafe(query(collection(db, 'tickets'), where('number', '==', Number(ticketNumStr)), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'tickets'), where('number', '>=', ticketNumStr), where('number', '<=', ticketNumStr + '\uf8ff'), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'crm_tickets'), where('number', '>=', ticketNumStr), where('number', '<=', ticketNumStr + '\uf8ff'), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'crm_tickets'), where('number', '==', Number(ticketNumStr)), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'tickets'), where('number', '==', Number(ticketNumStr)), limit(20))));
         } else if (firstWord) {
-            tQueries.push(getDocsSafe(query(collection(db, 'tickets'), where('customer_name', '>=', firstWord), where('customer_name', '<=', firstWord + '\uf8ff'), limit(20))));
-            tQueries.push(getDocsSafe(query(collection(db, 'tickets'), where('customer_name', '>=', capitalizedFirstWord), where('customer_name', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
-            tQueries.push(getDocsSafe(query(collection(db, 'crm_tickets'), where('customer_name', '>=', firstWord), where('customer_name', '<=', firstWord + '\uf8ff'), limit(20))));
-            tQueries.push(getDocsSafe(query(collection(db, 'crm_tickets'), where('customer_name', '>=', capitalizedFirstWord), where('customer_name', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'tickets'), where('customer_name', '>=', firstWord), where('customer_name', '<=', firstWord + '\uf8ff'), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'tickets'), where('customer_name', '>=', capitalizedFirstWord), where('customer_name', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'crm_tickets'), where('customer_name', '>=', firstWord), where('customer_name', '<=', firstWord + '\uf8ff'), limit(20))));
+            tQueries.push(getDocsSafe(query(companyCollection(db, 'crm_tickets'), where('customer_name', '>=', capitalizedFirstWord), where('customer_name', '<=', capitalizedFirstWord + '\uf8ff'), limit(20))));
         }
 
         const iQueries = [];
         if (ticketNumStr) {
-            iQueries.push(getDocsSafe(query(collection(db, 'invoices'), where('invoice_number', '>=', ticketNumStr), where('invoice_number', '<=', ticketNumStr + '\uf8ff'), limit(20))));
+            iQueries.push(getDocsSafe(query(companyCollection(db, 'invoices'), where('invoice_number', '>=', ticketNumStr), where('invoice_number', '<=', ticketNumStr + '\uf8ff'), limit(20))));
         }
 
         const [custSnaps, tickSnaps, invSnaps] = await Promise.all([

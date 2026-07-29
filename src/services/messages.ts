@@ -4,6 +4,7 @@ import { db } from "../firebase";
 import { ChatMessage } from "../stores/messages";
 import { ConversationEngine } from "./conversations";
 import { useConversationsStore } from "../stores/conversations";
+import { companyDoc } from "../lib/companyFirestore";
 
 export interface SendMessageParams {
   to: string;
@@ -60,7 +61,7 @@ export class MessagesService {
         clean = "61" + clean;
       }
       const threadId = clean;
-      const convRef = doc(db, "conversations", threadId);
+      const convRef = companyDoc("conversations", threadId);
       
       // We calculate new conversation details optimistically
       const timestamp = new Date();
@@ -105,7 +106,7 @@ export class MessagesService {
       }, { merge: true });
 
       // Write the optimistic message confirmation
-      const msgRef = doc(db, "messages", optimisticMessageId);
+      const msgRef = companyDoc("messages", optimisticMessageId);
       batch.set(msgRef, {
         from: "system-agent",
         to,

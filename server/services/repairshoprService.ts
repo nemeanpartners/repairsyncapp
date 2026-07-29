@@ -1,6 +1,7 @@
 import axios from "axios";
 import { getDb } from "../utils/firebase.js";
 import { doc, writeBatch, arrayUnion, setDoc, getDoc, runTransaction, serverTimestamp } from "firebase/firestore";
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 
 
@@ -34,7 +35,7 @@ export async function getRecentTickets(subdomain: string, apiKey: string) {
   const batch = customWriteBatch(db);
   for (const t of tickets) {
     const finalId = String(t.id);
-    const docRef = doc(db, "crm_tickets", finalId);
+    const docRef = companyDoc(db, "crm_tickets", finalId);
     batch.set(docRef, {
       ...t,
       id: finalId,
@@ -43,7 +44,7 @@ export async function getRecentTickets(subdomain: string, apiKey: string) {
     }, { merge: true });
 
     if (t.customer && t.customer.id) {
-      const custRef = doc(db, "crm_customers", String(t.customer.id));
+      const custRef = companyDoc(db, "crm_customers", String(t.customer.id));
       batch.set(custRef, {
         ...t.customer,
         id: String(t.customer.id)
@@ -82,7 +83,7 @@ export async function runMigrationInBackground(subdomain: string, apiKey: string
 
       const batch = writeBatch(db);
       for (const c of customers) {
-        const docRef = doc(db, "crm_customers", String(c.id));
+        const docRef = companyDoc(db, "crm_customers", String(c.id));
         batch.set(docRef, { ...c, id: String(c.id), uid: "system_migration" }, { merge: true });
       }
       await batch.commit();
@@ -113,7 +114,7 @@ export async function runMigrationInBackground(subdomain: string, apiKey: string
       const batch = writeBatch(db);
       for (const c of contacts) {
         const contactId = `contact_${c.id}`;
-        const docRef = doc(db, "crm_customers", contactId);
+        const docRef = companyDoc(db, "crm_customers", contactId);
         batch.set(docRef, {
           ...c,
           id: contactId,
@@ -151,10 +152,10 @@ export async function runMigrationInBackground(subdomain: string, apiKey: string
 
       const batch = writeBatch(db);
       for (const t of tickets) {
-        const ticketRef = doc(db, "crm_tickets", String(t.id));
+        const ticketRef = companyDoc(db, "crm_tickets", String(t.id));
         batch.set(ticketRef, { ...t, id: String(t.id), customer_id: String(t.customer_id), uid: "system_migration" }, { merge: true });
         if (t.customer_id) {
-          const customerRef = doc(db, "crm_customers", String(t.customer_id));
+          const customerRef = companyDoc(db, "crm_customers", String(t.customer_id));
           batch.set(customerRef, {
             tickets: arrayUnion({ id: t.id, number: t.number, subject: t.subject || '', status: t.status || '' }),
             }, { merge: true });
@@ -202,16 +203,16 @@ export async function runMigrationInBackground(subdomain: string, apiKey: string
           const text = s.body || "";
 
           if (!customerId && s.ticket_id) {
-            const tSnap = await getDoc(doc(db, "crm_tickets", String(s.ticket_id)));
+            const tSnap = await getDoc(companyDoc(db, "crm_tickets", String(s.ticket_id)));
             if (tSnap.exists()) customerId = String(tSnap.data().customer_id);
           }
 
           if (customerId) {
-            const cSnap = await getDoc(doc(db, "crm_customers", customerId));
+            const cSnap = await getDoc(companyDoc(db, "crm_customers", customerId));
             if (cSnap.exists()) phone = cSnap.data().mobile || cSnap.data().phone || "";
           }
 
-          await setDoc(doc(db, "messages", msgId), {
+          await setDoc(companyDoc(db, "messages", msgId), {
             from: type === "inbound" ? (phone || "external") : "system",
             to: type === "outbound" ? (phone || "external") : "system",
             text,
@@ -251,7 +252,7 @@ export async function processNewTicketWebhook(payload: any) {
 
     if (customer && customer.id) {
       const finalCustId = String(customer.id);
-      await setDoc(doc(db, "crm_customers", finalCustId), {
+      await setDoc(companyDoc(db, "crm_customers", finalCustId), {
         ...customer,
         id: finalCustId,
         created_at: customer.created_at || new Date().toISOString(),
@@ -263,7 +264,7 @@ export async function processNewTicketWebhook(payload: any) {
     }
 
     const tickId = String(ticket.id);
-    await setDoc(doc(db, "crm_tickets", tickId), {
+    await setDoc(companyDoc(db, "crm_tickets", tickId), {
       ...ticket,
       id: tickId,
       customer_id: String(ticket.customer_id),
@@ -271,7 +272,7 @@ export async function processNewTicketWebhook(payload: any) {
       }, { merge: true });
 
     if (ticket.customer_id) {
-      await setDoc(doc(db, "crm_customers", String(ticket.customer_id)), {
+      await setDoc(companyDoc(db, "crm_customers", String(ticket.customer_id)), {
         tickets: arrayUnion({ id: ticket.id, number: ticket.number, subject: ticket.subject || "", status: ticket.status || "" }),
         }, { merge: true });
     }
@@ -282,7 +283,7 @@ export async function processNewTicketWebhook(payload: any) {
     if (phone) {
       let messageTemplate = "Hi {firstName}, your repair has been successfully booked under job #{ticketNumber}. For updates, simply reply to this message and our team will assist you shortly.\nKind regards Phone Medic Team";
       try {
-        const settingsDoc = await getDoc(doc(db, "settings", "webhook_templates"));
+        const settingsDoc = await getDoc(companyDoc(db, "settings", "webhook_templates"));
         if (settingsDoc.exists() && settingsDoc.data().newTicketTemplate) {
           messageTemplate = settingsDoc.data().newTicketTemplate;
         }

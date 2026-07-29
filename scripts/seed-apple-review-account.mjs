@@ -113,6 +113,10 @@ async function setDoc(collectionName, docId, data, token) {
   }
 }
 
+async function setCompanyDoc(companyId, collectionName, docId, data, token) {
+  return setDoc(`companies/${companyId}/${collectionName}`, docId, data, token);
+}
+
 const reviewUid = await ensureReviewAuthUser();
 const token = accessToken();
 
@@ -131,6 +135,8 @@ await setDoc(
     email: REVIEW_EMAIL,
     displayName: "Apple Review User",
     role: "admin",
+    companyId: reviewUid,
+    companyName: "RepairSync Apple Review Workshop",
     hasAccess: true,
     billingRequired: false,
     subscriptionActive: true,
@@ -149,6 +155,36 @@ await setDoc(
 );
 
 await setDoc(
+  "companies",
+  reviewUid,
+  {
+    companyName: "RepairSync Apple Review Workshop",
+    ownerUid: reviewUid,
+    ownerEmail: REVIEW_EMAIL,
+    updatedAt: nowIso,
+  },
+  token,
+);
+
+await setCompanyDoc(
+  reviewUid,
+  "users",
+  reviewUid,
+  {
+    uid: reviewUid,
+    email: REVIEW_EMAIL,
+    displayName: "Apple Review User",
+    role: "admin",
+    companyId: reviewUid,
+    companyName: "RepairSync Apple Review Workshop",
+    supportEmail: SUPPORT_EMAIL,
+    updatedAt: nowIso,
+  },
+  token,
+);
+
+await setCompanyDoc(
+  reviewUid,
   "settings",
   "business",
   {
@@ -206,7 +242,7 @@ const customers = [
 ];
 
 for (const customer of customers) {
-  await setDoc("crm_customers", customer.id, { ...customer, created_at: nowIso, ...common }, token);
+  await setCompanyDoc(reviewUid, "crm_customers", customer.id, { ...customer, created_at: nowIso, ...common }, token);
 }
 
 const tickets = [
@@ -270,11 +306,12 @@ for (const ticket of tickets) {
     updated_at: nowIso,
     ...common,
   };
-  await setDoc("crm_tickets", ticket.id, data, token);
-  await setDoc("tickets", ticket.id, data, token);
+  await setCompanyDoc(reviewUid, "crm_tickets", ticket.id, data, token);
+  await setCompanyDoc(reviewUid, "tickets", ticket.id, data, token);
 }
 
-await setDoc(
+await setCompanyDoc(
+  reviewUid,
   "conversations",
   "apple_review_conversation_amelia",
   {
@@ -293,7 +330,8 @@ await setDoc(
   token,
 );
 
-await setDoc(
+await setCompanyDoc(
+  reviewUid,
   "messages",
   "apple_review_message_amelia_1",
   {
@@ -310,7 +348,8 @@ await setDoc(
   token,
 );
 
-await setDoc(
+await setCompanyDoc(
+  reviewUid,
   "tasks",
   "apple_review_task_parts",
   {
@@ -326,7 +365,8 @@ await setDoc(
   token,
 );
 
-await setDoc(
+await setCompanyDoc(
+  reviewUid,
   "parts_orders",
   "apple_review_parts_iphone_display",
   {
@@ -341,7 +381,8 @@ await setDoc(
   token,
 );
 
-await setDoc(
+await setCompanyDoc(
+  reviewUid,
   "inventory_products",
   "apple_review_inventory_display",
   {
@@ -357,7 +398,8 @@ await setDoc(
   token,
 );
 
-await setDoc(
+await setCompanyDoc(
+  reviewUid,
   "invoices",
   "apple_review_invoice_1001",
   {

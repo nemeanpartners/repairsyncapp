@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, limit, getDocs, orderBy, where, QueryConstraint } from "firebase/firestore";
-import { db } from "../../../firebase";
+import { query, limit, getDocs, orderBy, where, QueryConstraint } from "firebase/firestore";
 import { Ticket, Users, Package, MessageSquare, ArrowRight, Activity, CircleDollarSign, LayoutDashboard, AlertCircle, ArrowLeft, Send, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Badge } from "@/components/ui/badge";
@@ -9,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { TechnicianDashboard } from "./TechnicianDashboardPage";
 import { useWorkflowStore } from "../../../store/workflowStore";
 import { SyncLogsPanel } from "../components/SyncLogsPanel";
+import { companyCollection } from "../../../lib/companyFirestore";
 
 export function DashboardView() {
   const { isTechMode } = useWorkflowStore();
@@ -22,10 +22,10 @@ export function DashboardView() {
 
 async function safeGetCollection(collectionName: string, constraints: QueryConstraint[] = []) {
   try {
-    return await getDocs(query(collection(db, collectionName), ...constraints));
+    return await getDocs(query(companyCollection(collectionName), ...constraints));
   } catch (error) {
     console.error(`Dashboard query failed for ${collectionName}`, error);
-    return await getDocs(query(collection(db, collectionName), limit(50)));
+    return await getDocs(query(companyCollection(collectionName), limit(50)));
   }
 }
 

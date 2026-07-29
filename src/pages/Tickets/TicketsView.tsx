@@ -9,6 +9,7 @@ import { RealtimeManager } from "../../services/RealtimeManager";
 import { CostAnalyticsEngine } from "../../services/CostAnalyticsEngine";
 import { Badge } from "@/components/ui/badge";
 import { TicketDetailView } from "./TicketDetailView";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export function TicketsView() {
   const [viewMode, setViewMode] = useState<"kanban" | "list">("kanban");
@@ -19,8 +20,8 @@ export function TicketsView() {
 
   useEffect(() => {
     // Basic query for now, querying both crm_tickets and tickets
-    const qCrm = query(collection(db, "crm_tickets"), orderBy("created_at", "desc"), limit(100));
-    const qNew = query(collection(db, "tickets"), orderBy("created_at", "desc"), limit(100));
+    const qCrm = query(companyCollection("crm_tickets"), orderBy("created_at", "desc"), limit(100));
+    const qNew = query(companyCollection("tickets"), orderBy("created_at", "desc"), limit(100));
     
     let crmData: any[] = [];
     let newData: any[] = [];

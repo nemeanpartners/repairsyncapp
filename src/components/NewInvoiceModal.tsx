@@ -18,6 +18,7 @@ import { CustomerSearchBox } from "../features/customers/components/CustomerSear
 import { NormalizedCustomer } from "../hooks/customers/useCustomerSearch";
 import { useNavigate } from "react-router-dom";
 import { useCatalogAndSuppliers } from "../hooks/useCatalogAndSuppliers";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const NewInvoiceModal = ({
   isOpen,
@@ -139,17 +140,17 @@ export const NewInvoiceModal = ({
 
       if (isNewCustomer || !finalCustId) {
         custDataToSave.created_at = new Date().toISOString();
-        const crmRef = await addDoc(collection(db, 'crm_customers'), custDataToSave);
+        const crmRef = await addDoc(companyCollection('crm_customers'), custDataToSave);
         finalCustId = crmRef.id;
       } else {
-        await setDoc(doc(db, 'crm_customers', finalCustId), custDataToSave, { merge: true });
+        await setDoc(companyDoc('crm_customers', finalCustId), custDataToSave, { merge: true });
       }
 
       // 2. Create Invoice
       const subtotal = calculateSubtotal();
       const total = calculateTotal();
       
-      const docRef = await addDoc(collection(db, "invoices"), {
+      const docRef = await addDoc(companyCollection("invoices"), {
         customer_id: finalCustId,
         ticket_id: prefillTicketId || null,
         invoice_number: `${Math.floor(1000000 + Math.random() * 9000000)}`,

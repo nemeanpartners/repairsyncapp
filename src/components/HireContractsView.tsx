@@ -39,6 +39,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { toast } from "sonner";
 import { format } from "date-fns";
 import axios from "axios";
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 
 async function addDoc(colRef: any, data: any) { return firestoreAddDoc(colRef, { ...data }); }
@@ -62,13 +63,13 @@ export const HireContractsView = () => {
 
   useEffect(() => {
     // Fetch all customers for dropdown
-    const qCust = query(collection(db, "crm_customers"), limit(2000));
+    const qCust = query(companyCollection("crm_customers"), limit(2000));
     getDocs(qCust).then((snap) => {
       setCustomers(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     }).catch(console.error);
 
     // Subscribe to hire contracts
-    const qContracts = query(collection(db, "hire_contracts"), limit(1000));
+    const qContracts = query(companyCollection("hire_contracts"), limit(1000));
     const unsub = onSnapshot(qContracts, async (snap) => {
       const contractsList: any[] = [];
       for (const contractDoc of snap.docs) {
@@ -77,7 +78,7 @@ export const HireContractsView = () => {
         
         if (data.customer_id) {
           try {
-            const custSnap = await getDoc(doc(db, "crm_customers", data.customer_id));
+            const custSnap = await getDoc(companyDoc("crm_customers", data.customer_id));
             if (custSnap.exists()) {
               const cData = custSnap.data();
               customerName = cData.fullname || `${cData.firstname || ""} ${cData.lastname || ""}`.trim() || "Customer";
@@ -100,7 +101,7 @@ export const HireContractsView = () => {
 
   const handleStatusChange = async (contractId: string, currentStatus: string, action: "PAUSE" | "RESUME" | "TERMINATE") => {
     try {
-      const contractRef = doc(db, "hire_contracts", contractId);
+      const contractRef = companyDoc("hire_contracts", contractId);
       let newStatus: "ACTIVE" | "PAUSED" | "TERMINATED" = "ACTIVE";
       if (action === "PAUSE") newStatus = "PAUSED";
       if (action === "TERMINATE") newStatus = "TERMINATED";
@@ -153,7 +154,7 @@ export const HireContractsView = () => {
         ]
       };
 
-      await addDoc(collection(db, "hire_contracts"), docData);
+      await addDoc(companyCollection("hire_contracts"), docData);
       toast.success("Recurring Hire Agreement Created!", { description: `Billing starts on ${nextBillingDate}` });
       setIsNewContractOpen(false);
       

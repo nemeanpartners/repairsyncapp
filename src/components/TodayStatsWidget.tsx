@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore
 import { db } from '../firebase';
 import { startOfDay } from 'date-fns';
 import { Loader2 } from 'lucide-react';
+import { companyCollection } from "../lib/companyFirestore";
 
 export function TodayStatsWidget() {
   const [closedTickets, setClosedTickets] = useState(0);
@@ -16,7 +17,7 @@ export function TodayStatsWidget() {
         const start = startOfDay(new Date());
         // Fetch tickets closed today
         const ticketsQ = query(
-          collection(db, 'tickets'),
+          companyCollection('tickets'),
           where('updated_at', '>=', start)
         );
         const tSnap = await getDocs(ticketsQ);
@@ -27,7 +28,7 @@ export function TodayStatsWidget() {
         
         // Fetch payments made today
         const paymentsQ = query(
-          collection(db, 'payments'),
+          companyCollection('payments'),
           where('created_at', '>=', start)
         );
         const pSnap = await getDocs(paymentsQ);

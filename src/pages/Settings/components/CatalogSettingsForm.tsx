@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { Loader2, Plus, Trash2, Edit2, Check, X } from "lucide-react";
 import { toast } from "sonner";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 export function CatalogSettingsForm() {
   const [products, setProducts] = useState<any[]>([]);
@@ -23,8 +24,8 @@ export function CatalogSettingsForm() {
   const fetchData = async () => {
     setIsLoading(true);
     try {
-      const prodSnap = await getDocs(collection(db, "product_catalog"));
-      const suppSnap = await getDocs(collection(db, "suppliers"));
+      const prodSnap = await getDocs(companyCollection("product_catalog"));
+      const suppSnap = await getDocs(companyCollection("suppliers"));
       setProducts(prodSnap.docs.map(d => ({ id: d.id, ...d.data() })));
       setSuppliers(suppSnap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
@@ -42,7 +43,7 @@ export function CatalogSettingsForm() {
   const handleAddProduct = async () => {
     if (!newProductDesc.trim()) return;
     try {
-      await addDoc(collection(db, "product_catalog"), {
+      await addDoc(companyCollection("product_catalog"), {
         code: newProductCode || "",
         description: newProductDesc,
         price: Number(newProductPrice) || 0,
@@ -61,7 +62,7 @@ export function CatalogSettingsForm() {
   const handleAddSupplier = async () => {
     if (!newSupplierName.trim()) return;
     try {
-      await addDoc(collection(db, "suppliers"), {
+      await addDoc(companyCollection("suppliers"), {
         name: newSupplierName,
         created_at: serverTimestamp(),
       });
@@ -75,7 +76,7 @@ export function CatalogSettingsForm() {
 
   const handleDeleteProduct = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "product_catalog", id));
+      await deleteDoc(companyDoc("product_catalog", id));
       fetchData();
       toast.success("Product deleted");
     } catch(e) {
@@ -85,7 +86,7 @@ export function CatalogSettingsForm() {
 
   const handleDeleteSupplier = async (id: string) => {
     try {
-      await deleteDoc(doc(db, "suppliers", id));
+      await deleteDoc(companyDoc("suppliers", id));
       fetchData();
       toast.success("Supplier deleted");
     } catch(e) {

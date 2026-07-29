@@ -20,6 +20,16 @@ service cloud.firestore {
     function getUserRole() { 
       return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role : null; 
     }
+    function getUserCompanyId() {
+      return exists(/databases/$(database)/documents/users/$(request.auth.uid)) ? get(/databases/$(database)/documents/users/$(request.auth.uid)).data.companyId : null;
+    }
+    function isCompanyMember(companyId) {
+      return isSignedIn() && (
+        isGuest() && companyId == 'demo' ||
+        getUserCompanyId() == companyId ||
+        isAdmin()
+      );
+    }
     // Bootstrapped Admin
     function isAdmin() { 
       return isSignedIn() && (
@@ -49,8 +59,11 @@ service cloud.firestore {
     // USERS COLLECTION
     // -------------------------------------------------------------------------
     function isValidUser(data) {
-      return data.keys().hasAny(['displayName']) &&
+      return data.keys().hasAny(['displayName', 'email', 'uid', 'companyId']) &&
              (!('displayName' in data) || (data.displayName is string && data.displayName.size() <= 100)) &&
+             (!('companyId' in data) || (data.companyId is string && data.companyId.size() <= 128)) &&
+             (!('companyName' in data) || data.companyName == null || (data.companyName is string && data.companyName.size() <= 150)) &&
+             (!('email' in data) || data.email == null || (data.email is string && data.email.size() <= 150)) &&
              (!('role' in data) || (data.role is string && data.role.size() <= 20)) &&
              (!('addedAt' in data) || data.addedAt is timestamp);
     }
@@ -65,9 +78,46 @@ service cloud.firestore {
       // Validated Update
       allow update: if isSignedIn() && isValidUser(incoming()) && (
         isAdmin() || 
-        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly(['displayName', 'uid']))
+        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly([
+          'displayName',
+          'uid',
+          'email',
+          'photoURL',
+          'companyId',
+          'companyName',
+          'updatedAt',
+          'hasAccess',
+          'billingRequired',
+          'subscriptionActive',
+          'subscriptionStatus',
+          'subscriptionPlan',
+          'subscriptionInterval',
+          'subscriptionSource',
+          'subscriptionGrandfathered',
+          'stripeCustomerId',
+          'stripeSubscriptionId',
+          'subscriptionCurrentPeriodEnd',
+          'subscriptionCheckoutCompletedAt'
+        ]))
       );
       allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // COMPANY-SCOPED APPLICATION DATA
+    // Operational app data lives under:
+    // /companies/{companyId}/{collectionName}/{documentId}
+    // -------------------------------------------------------------------------
+    match /companies/{companyId} {
+      allow read: if isCompanyMember(companyId);
+      allow create, update: if isCompanyMember(companyId) || isServerSigned();
+      allow delete: if isAdmin();
+
+      match /{document=**} {
+        allow read: if isCompanyMember(companyId);
+        allow create, update: if isCompanyMember(companyId) || isServerSigned();
+        allow delete: if isCompanyMember(companyId);
+      }
     }
 
     // -------------------------------------------------------------------------

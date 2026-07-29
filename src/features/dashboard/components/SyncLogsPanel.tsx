@@ -3,6 +3,7 @@ import { collection, query, orderBy, limit, getDocs, where } from "firebase/fire
 import { db } from "../../../firebase";
 import { AlertCircle, AlertTriangle, Info, CheckCircle2, History, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { companyCollection } from "../../../lib/companyFirestore";
 
 function toMillis(value: any) {
   if (!value) return Date.now();
@@ -35,7 +36,7 @@ export function SyncLogsPanel() {
     setIsLoading(true);
     try {
       const q = query(
-        collection(db, "system_logs"),
+        companyCollection("system_logs"),
         where("service", "==", "repairshopr_sync"),
         orderBy("timestamp", "desc"),
         limit(15)

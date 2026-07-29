@@ -4,6 +4,7 @@ import { collection, getDocs, doc, writeBatch } from 'firebase/firestore';
 import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { toast } from 'sonner';
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 interface CustomerDuplicateMergeToolProps {
   isOpen: boolean;
@@ -20,7 +21,7 @@ export const CustomerDuplicateMergeTool = ({ isOpen, onOpenChange, onSuccess }: 
     setDedupProgress({ current: 0, total: 0, step: "Fetching..." });
     
     try {
-      const snapshot = await getDocs(collection(db, 'crm_customers'));
+      const snapshot = await getDocs(companyCollection('crm_customers'));
       const allContacts = snapshot.docs.map(d => ({ id: d.id, ...d.data() as any }));
       
       const toDelete = new Set<string>();
@@ -78,7 +79,7 @@ export const CustomerDuplicateMergeTool = ({ isOpen, onOpenChange, onSuccess }: 
       for (let i = 0; i < idsToDelete.length; i += 500) {
          const batch = writeBatch(db);
          const chunk = idsToDelete.slice(i, i + 500);
-         chunk.forEach(id => batch.delete(doc(db, 'crm_customers', id)));
+         chunk.forEach(id => batch.delete(companyDoc('crm_customers', id)));
          await batch.commit();
          setDedupProgress({ current: Math.min(i + 500, idsToDelete.length), total: idsToDelete.length, step: "Deleting..." });
       }

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import axios from 'axios';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDb } from '../utils/firebase.js';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 export const zohoRouter = Router();
 
@@ -19,7 +20,7 @@ export function normalizeZohoRegion(region: string) {
 }
 
 export async function getZohoToken(db: any) {
-  const snap = await getDoc(doc(db, 'crm_integrations', 'zoho'));
+  const snap = await getDoc(companyDoc(db, 'crm_integrations', 'zoho'));
   const data = snap.data();
   if (!data) throw new Error('Zoho not integrated');
   return data;
@@ -47,7 +48,7 @@ export async function refreshZohoToken(db: any, refreshToken: string, region: st
      throw new Error(`Zoho refresh token failed, missing access_token in response: ${JSON.stringify(response.data)}`);
   }
 
-  await updateDoc(doc(db, 'crm_integrations', 'zoho'), {
+  await updateDoc(companyDoc(db, 'crm_integrations', 'zoho'), {
     access_token,
     updated_at: serverTimestamp()
   });
@@ -58,7 +59,7 @@ zohoRouter.get('/api/debug/zoho', async (req, res) => {
   const db = getDb();
   if (!db) return res.status(500).json({ error: "No DB" });
   try {
-    const snap = await getDoc(doc(db, 'crm_integrations', 'zoho'));
+    const snap = await getDoc(companyDoc(db, 'crm_integrations', 'zoho'));
     res.json({ exists: snap.exists(), data: snap.data() });
   } catch (e: any) {
     res.status(500).json({ err: e.message });
@@ -141,7 +142,7 @@ zohoRouter.get('/api/auth/zoho/callback', async (req, res) => {
       throw new Error(`Token exchange missing access_token. Response: ${JSON.stringify(response.data)}`);
     }
 
-    const docRef = doc(db, 'crm_integrations', 'zoho');
+    const docRef = companyDoc(db, 'crm_integrations', 'zoho');
     
     await setDoc(docRef, {
       access_token: response.data.access_token,
@@ -165,7 +166,7 @@ zohoRouter.get('/api/zoho/status', async (req, res) => {
   try {
     const db = getDb();
     if (!db) return res.json({ status: 'inactive' });
-    const snap = await getDoc(doc(db, 'crm_integrations', 'zoho'));
+    const snap = await getDoc(companyDoc(db, 'crm_integrations', 'zoho'));
     if (snap.exists()) {
       res.json({ status: 'active' });
     } else {

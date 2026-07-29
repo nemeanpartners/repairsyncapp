@@ -3,6 +3,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { getDb } from "../utils/firebase.js";
 import { collection, query, getDocs, limit } from "firebase/firestore";
 import { RetryHelper } from "../utils/RetryHelper.js";
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 export const aiRouter = Router();
 
@@ -208,7 +209,7 @@ aiRouter.get("/api/ai/exec", async (req, res) => {
     };
 
     try {
-      const ticketsRef = collection(db, "tickets");
+      const ticketsRef = companyCollection(db, "tickets");
       const snap = await getDocs(query(ticketsRef, limit(100)));
       stats.totalTicketsCount = snap.size;
       snap.forEach(doc => {

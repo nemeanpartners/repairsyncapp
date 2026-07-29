@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Plus, Trash2, Save, Loader2 } from "lucide-react";
+import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
 export function ChatTemplatesSettingsForm() {
   const [chatTemplates, setChatTemplates] = useState<{ id: string, text: string }[]>([]);
@@ -16,7 +17,7 @@ export function ChatTemplatesSettingsForm() {
   useEffect(() => {
     const fetchChatTemplates = async () => {
       try {
-        const snapshot = await getDocs(collection(db, "chat_templates"));
+        const snapshot = await getDocs(companyCollection("chat_templates"));
         const templates: { id: string, text: string }[] = [];
         snapshot.forEach(d => {
           templates.push({ id: d.id, text: d.data().text || "" });
@@ -47,12 +48,12 @@ export function ChatTemplatesSettingsForm() {
   const handleSave = async () => {
     setIsSaving(true);
     try {
-      const snapshot = await getDocs(collection(db, "chat_templates"));
+      const snapshot = await getDocs(companyCollection("chat_templates"));
       const currentIds = chatTemplates.filter(t => !t.id.startsWith("new_")).map(t => t.id);
       
       const deletions = snapshot.docs.map(docSnap => {
         if (!currentIds.includes(docSnap.id)) {
-           return deleteDoc(doc(db, "chat_templates", docSnap.id));
+           return deleteDoc(companyDoc("chat_templates", docSnap.id));
         }
         return Promise.resolve();
       });
@@ -60,9 +61,9 @@ export function ChatTemplatesSettingsForm() {
 
       const additions = chatTemplates.map(t => {
          if (t.id.startsWith("new_")) {
-            return addDoc(collection(db, "chat_templates"), { text: t.text });
+            return addDoc(companyCollection("chat_templates"), { text: t.text });
          } else {
-            return setDoc(doc(db, "chat_templates", t.id), { text: t.text });
+            return setDoc(companyDoc("chat_templates", t.id), { text: t.text });
          }
       });
       await Promise.all(additions);
@@ -71,7 +72,7 @@ export function ChatTemplatesSettingsForm() {
       setIsDirty(false);
       
       // refetch to update IDs
-      const refetched = await getDocs(collection(db, "chat_templates"));
+      const refetched = await getDocs(companyCollection("chat_templates"));
       const newTemplates: { id: string, text: string }[] = [];
       refetched.forEach(docSnap => {
           newTemplates.push({ id: docSnap.id, text: docSnap.data().text || "" });

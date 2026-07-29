@@ -5,6 +5,7 @@ import { CostAnalyticsEngine } from "../CostAnalyticsEngine";
 import { db } from "../../firebase";
 import { collection, query as fsQuery, where, limit as fsLimit, getDocs } from "firebase/firestore";
 import axios from "axios";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export interface NormalizedCustomer {
   customerId: string;
@@ -273,8 +274,8 @@ export class CustomerSearchEngine {
         const lowQuery = rawQuery.toLowerCase();
         
         // Attempt array-contains if we have indexed terms, otherwise prefix match on firstName
-        const qFirst = fsQuery(collection(db, "crm_customers"), where("firstName", ">=", rawQuery), where("firstName", "<=", rawQuery + "\uf8ff"), fsLimit(20));
-        const qTerms = fsQuery(collection(db, "crm_customers"), where("searchTermsArray", "array-contains", lowQuery), fsLimit(20));
+        const qFirst = fsQuery(companyCollection("crm_customers"), where("firstName", ">=", rawQuery), where("firstName", "<=", rawQuery + "\uf8ff"), fsLimit(20));
+        const qTerms = fsQuery(companyCollection("crm_customers"), where("searchTermsArray", "array-contains", lowQuery), fsLimit(20));
         
         const [snapFirst, snapTerms] = await Promise.all([getDocs(qFirst), getDocs(qTerms)]);
         const totalReadsTracked = snapFirst.size + snapTerms.size;

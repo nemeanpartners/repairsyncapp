@@ -11,6 +11,7 @@ import * as htmlToImage from 'html-to-image';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { toast } from 'sonner';
+import { companyCollection, companyDoc } from "../lib/companyFirestore";
 
 export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack?: () => void }) => {
   const [loading, setLoading] = useState(true);
@@ -41,7 +42,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
 
   // 1. Subscribe to Xero connection state
   useEffect(() => {
-    const unsub = onSnapshot(doc(db, 'crm_integrations', 'xero'), (snap) => {
+    const unsub = onSnapshot(companyDoc('crm_integrations', 'xero'), (snap) => {
       setIsXeroConnected(snap.exists());
     }, (error) => {
       console.error("InvoiceViewer xero integrations snap error:", error);
@@ -52,7 +53,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
   // 2. Subscribe to latest Xero sync logs for this Invoice
   useEffect(() => {
     const q = query(
-      collection(db, 'xero_sync_queue'),
+      companyCollection('xero_sync_queue'),
       where('entity_id', '==', invoiceId),
       where('entity_type', '==', 'INVOICE')
     );
@@ -72,14 +73,14 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
 
   // 3. Real-time active invoice subscription
   useEffect(() => {
-    const unsubInvoice = onSnapshot(doc(db, 'invoices', invoiceId), async (docSnap) => {
+    const unsubInvoice = onSnapshot(companyDoc('invoices', invoiceId), async (docSnap) => {
       if (docSnap.exists()) {
         const invData = docSnap.data();
         setInvoice({ id: docSnap.id, ...invData });
         
         if (invData.customer_id) {
           try {
-            const customerSnap = await getDoc(doc(db, 'crm_customers', invData.customer_id));
+            const customerSnap = await getDoc(companyDoc('crm_customers', invData.customer_id));
             if (customerSnap.exists()) {
                setCustomer({ id: customerSnap.id, ...customerSnap.data() });
             }
@@ -98,7 +99,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
     });
 
     // Fetch Org Details once
-    getDoc(doc(db, "settings", "organization")).then((orgSnap) => {
+    getDoc(companyDoc("settings", "organization")).then((orgSnap) => {
       if (orgSnap.exists()) {
         setOrgDetails((prev) => ({ ...prev, ...orgSnap.data() }));
       }
@@ -372,7 +373,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
     if (!invoice) return;
     setIsApplyingPayment(true);
     try {
-      await updateDoc(doc(db, "invoices", invoice.id), {
+      await updateDoc(companyDoc("invoices", invoice.id), {
         status: "PAID",
         amount_paid: invoice.total,
         amount_due: 0,
@@ -381,7 +382,7 @@ export const InvoiceViewer = ({ invoiceId, onBack }: { invoiceId: string, onBack
         tender_type: paymentTender,
       });
       
-      const pDoc = await addDoc(collection(db, "payments"), {
+      const pDoc = await addDoc(companyCollection("payments"), {
         invoice_id: invoice.id,
         invoice_number: invoice.invoice_number || null,
         customer_id: invoice.customer_id,

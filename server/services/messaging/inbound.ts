@@ -3,6 +3,7 @@ import { collection, query, where, getDocs, doc, addDoc, serverTimestamp, runTra
 import { getDb } from '../../utils/firebase.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { updateConversationMetadata } from './metadata.js';
+import { companyCollection, companyDoc } from '../../companyFirestore.js';
 
 export async function syncMobileMessages() {
   const db = getDb();
@@ -23,7 +24,7 @@ export async function syncMobileMessages() {
   let processedIds = new Set();
 
   const crmMap = new Map();
-  const crmCustSnap = await getDocs(collection(db, 'crm_customers'));
+  const crmCustSnap = await getDocs(companyCollection(db, 'crm_customers'));
   crmCustSnap.forEach(d => {
     const c = d.data();
     const fullname = c.fullname || c.business_then_name || `${c.firstname || ''} ${c.lastname || ''}`.trim();
@@ -82,7 +83,7 @@ export async function syncMobileMessages() {
       const possibleFroms = Array.from(new Set([localFormatFrom, normalizedFrom, '+' + normalizedFrom].filter(Boolean)));
       let isDuplicate = false;
       if (possibleFroms.length > 0) {
-        const existingQ = query(collection(db, 'messages'), where('from', 'in', possibleFroms), where('type', '==', 'inbound'));
+        const existingQ = query(companyCollection(db, 'messages'), where('from', 'in', possibleFroms), where('type', '==', 'inbound'));
         const existingDocs = await getDocs(existingQ);
 
         existingDocs.forEach(doc => {
@@ -99,7 +100,7 @@ export async function syncMobileMessages() {
       }
 
       if (!isDuplicate) {
-        const docRef = await addDoc(collection(db, 'messages'), {
+        const docRef = await addDoc(companyCollection(db, 'messages'), {
           from: localFormatFrom,
           to: 'system',
           text,
@@ -165,7 +166,7 @@ export async function processInboundWebhook(payload: any) {
   // Webhooks often retry within 2-3 minutes if our server is slow or if they drop the connection.
   try {
     const recentQ = query(
-      collection(db, 'messages'),
+      companyCollection(db, 'messages'),
       orderBy('timestamp', 'desc'),
       limit(50)
     );
@@ -202,12 +203,12 @@ export async function processInboundWebhook(payload: any) {
   // Search CRM
   try {
     const queries = [
-      getDocs(query(collection(db, 'crm_customers'), where('phone', '==', localFormatFrom), limit(1))),
-      getDocs(query(collection(db, 'crm_customers'), where('mobile', '==', localFormatFrom), limit(1))),
-      getDocs(query(collection(db, 'crm_customers'), where('cell', '==', localFormatFrom), limit(1))),
-      getDocs(query(collection(db, 'crm_customers'), where('phone', '==', normalizedFrom), limit(1))),
-      getDocs(query(collection(db, 'crm_customers'), where('mobile', '==', normalizedFrom), limit(1))),
-      getDocs(query(collection(db, 'crm_customers'), where('cell', '==', normalizedFrom), limit(1)))
+      getDocs(query(companyCollection(db, 'crm_customers'), where('phone', '==', localFormatFrom), limit(1))),
+      getDocs(query(companyCollection(db, 'crm_customers'), where('mobile', '==', localFormatFrom), limit(1))),
+      getDocs(query(companyCollection(db, 'crm_customers'), where('cell', '==', localFormatFrom), limit(1))),
+      getDocs(query(companyCollection(db, 'crm_customers'), where('phone', '==', normalizedFrom), limit(1))),
+      getDocs(query(companyCollection(db, 'crm_customers'), where('mobile', '==', normalizedFrom), limit(1))),
+      getDocs(query(companyCollection(db, 'crm_customers'), where('cell', '==', normalizedFrom), limit(1)))
     ];
     const results = await Promise.all(queries);
     for (const snap of results) {
@@ -223,7 +224,7 @@ export async function processInboundWebhook(payload: any) {
     // Robust fallback: fetch and check normalized phone numbers if direct query missed
     if (!customerId) {
       console.log(`[Webhooks] Exact query missed. Trying robust normalized fallback...`);
-      const crmCustSnap = await getDocs(collection(db, 'crm_customers'));
+      const crmCustSnap = await getDocs(companyCollection(db, 'crm_customers'));
       for (const d of crmCustSnap.docs) {
         const c = d.data();
         const pPhone = normalizePhone(c.phone || '');
@@ -244,7 +245,7 @@ export async function processInboundWebhook(payload: any) {
     }
 
     if (customerId) {
-      const q = query(collection(db, 'crm_tickets'), where('customer_id', '==', customerId));
+      const q = query(companyCollection(db, 'crm_tickets'), where('customer_id', '==', customerId));
       const crmTickSnap = await getDocs(q);
       const crmTickets = crmTickSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
         const timeA = a.created_at?.seconds ? a.created_at.seconds * 1000 : new Date(a.created_at || 0).getTime();
@@ -303,7 +304,7 @@ export async function processInboundWebhook(payload: any) {
     }
   }
 
-  const docRef = await addDoc(collection(db, 'messages'), {
+  const docRef = await addDoc(companyCollection(db, 'messages'), {
     from: localFormatFrom,
     to: toField,
     text,
@@ -343,11 +344,11 @@ export async function processInboundWebhook(payload: any) {
 
       if (isApproval) {
         // Find a pending estimate for this ticket
-        const estQ = query(collection(db, 'estimates'), where('ticket_id', '==', ticketIdLog));
+        const estQ = query(companyCollection(db, 'estimates'), where('ticket_id', '==', ticketIdLog));
         const estSnap = await getDocs(estQ);
         
         // Also check crm_estimates as fallback
-        const crmEstQ = query(collection(db, 'crm_estimates'), where('ticket_id', '==', ticketIdLog));
+        const crmEstQ = query(companyCollection(db, 'crm_estimates'), where('ticket_id', '==', ticketIdLog));
         const crmEstSnap = await getDocs(crmEstQ);
 
         const allEstDocs = [...estSnap.docs, ...crmEstSnap.docs];
@@ -362,7 +363,7 @@ export async function processInboundWebhook(payload: any) {
           const estDoc = pendingEstDocs[0];
           const colName = estDoc.ref.parent.id; // 'estimates' or 'crm_estimates'
           
-          await updateDoc(doc(db, colName, estDoc.id), {
+          await updateDoc(companyDoc(db, colName, estDoc.id), {
             status: "approved",
             updated_at: new Date().toISOString()
           });
@@ -370,7 +371,7 @@ export async function processInboundWebhook(payload: any) {
           // Also try to update the other collection just in case
           const otherCol = colName === 'estimates' ? 'crm_estimates' : 'estimates';
           try {
-            await updateDoc(doc(db, otherCol, estDoc.id), {
+            await updateDoc(companyDoc(db, otherCol, estDoc.id), {
               status: "approved",
               updated_at: new Date().toISOString()
             });
@@ -380,7 +381,7 @@ export async function processInboundWebhook(payload: any) {
           
           if (estimateData.line_items && Array.isArray(estimateData.line_items)) {
             for (const item of estimateData.line_items) {
-              await addDoc(collection(db, "crm_line_items"), {
+              await addDoc(companyCollection(db, "crm_line_items"), {
                 ticket_id: ticketIdLog,
                 name: item.name || item.description || "Estimate Charge",
                 price: Number(item.unit_price || item.unit_amount || item.price || 0),
@@ -393,7 +394,7 @@ export async function processInboundWebhook(payload: any) {
 
           // Create notification for staff
           try {
-             await addDoc(collection(db, "notifications"), {
+             await addDoc(companyCollection(db, "notifications"), {
                title: "Estimate Approved",
                message: `Customer approved estimate ${estimateData.estimate_number || estDoc.id} for ticket ${ticketNumberLog || ticketIdLog}.`,
                type: "estimate_approved",
@@ -405,7 +406,7 @@ export async function processInboundWebhook(payload: any) {
              console.error("[Webhooks] Failed to create notification", e);
           }
 
-          await addDoc(collection(db, "crm_notes"), {
+          await addDoc(companyCollection(db, "crm_notes"), {
             ticket_id: ticketIdLog,
             body: `Customer replied "${text}" via SMS. Automatically approved estimate ${estimateData.estimate_number || estDoc.id} and added line items.`,
             subject: "Estimate Approved via SMS",
@@ -414,13 +415,13 @@ export async function processInboundWebhook(payload: any) {
             updated_at: new Date().toISOString(),
           });
 
-          await updateDoc(doc(db, 'crm_tickets', ticketIdLog), {
+          await updateDoc(companyDoc(db, 'crm_tickets', ticketIdLog), {
             status: 'Waiting for Parts',
             updated_at: serverTimestamp(),
           });
         } else {
           // No pending estimate, just update ticket status directly
-          await addDoc(collection(db, "crm_notes"), {
+          await addDoc(companyCollection(db, "crm_notes"), {
             ticket_id: ticketIdLog,
             body: `Customer replied "${text}" via SMS indicating approval.`,
             subject: "Approval Received via SMS",
@@ -431,7 +432,7 @@ export async function processInboundWebhook(payload: any) {
 
           // Create notification for staff
           try {
-             await addDoc(collection(db, "notifications"), {
+             await addDoc(companyCollection(db, "notifications"), {
                title: "SMS Approval Received",
                message: `Customer replied "yes" for ticket ${ticketNumberLog || ticketIdLog}.`,
                type: "sms_approved",
@@ -443,13 +444,13 @@ export async function processInboundWebhook(payload: any) {
              console.error("[Webhooks] Failed to create notification", e);
           }
 
-          await updateDoc(doc(db, 'crm_tickets', ticketIdLog), {
+          await updateDoc(companyDoc(db, 'crm_tickets', ticketIdLog), {
             status: 'Waiting for Parts',
             updated_at: serverTimestamp(),
           });
         }
       } else if (isRejection) {
-        await addDoc(collection(db, "crm_notes"), {
+        await addDoc(companyCollection(db, "crm_notes"), {
           ticket_id: ticketIdLog,
           body: `Customer replied "${text}" via SMS indicating rejection.`,
           subject: "Rejection Received via SMS",
@@ -460,7 +461,7 @@ export async function processInboundWebhook(payload: any) {
 
         // Create notification for staff
         try {
-           await addDoc(collection(db, "notifications"), {
+           await addDoc(companyCollection(db, "notifications"), {
              title: "SMS Rejection Received",
              message: `Customer replied "no" for ticket ${ticketNumberLog || ticketIdLog}.`,
              type: "sms_rejected",
@@ -472,12 +473,12 @@ export async function processInboundWebhook(payload: any) {
            console.error("[Webhooks] Failed to create notification", e);
         }
 
-        await updateDoc(doc(db, 'crm_tickets', ticketIdLog), {
+        await updateDoc(companyDoc(db, 'crm_tickets', ticketIdLog), {
           status: 'Declined',
           updated_at: serverTimestamp(),
         });
       } else {
-        await updateDoc(doc(db, 'crm_tickets', ticketIdLog), {
+        await updateDoc(companyDoc(db, 'crm_tickets', ticketIdLog), {
           status: 'Your Turn',
           updated_at: serverTimestamp(),
         });

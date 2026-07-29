@@ -9,6 +9,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { doc, deleteDoc } from "firebase/firestore";
 import { db } from "../../firebase";
 import { RealtimeManager } from "../../services/RealtimeManager";
+import { companyDoc } from "../../lib/companyFirestore";
 
 interface TicketDetailViewProps {
   ticketId: string;
@@ -21,7 +22,7 @@ export function TicketDetailView({ ticketId, onBack }: TicketDetailViewProps) {
 
   useEffect(() => {
     if (!ticketId) return;
-    const unsub = RealtimeManager.subscribe(`ticket_detail_${ticketId}`, doc(db, "tickets", ticketId), (data) => {
+    const unsub = RealtimeManager.subscribe(`ticket_detail_${ticketId}`, companyDoc("tickets", ticketId), (data) => {
       if (data) {
         setTicket(data);
       }
@@ -35,7 +36,7 @@ export function TicketDetailView({ ticketId, onBack }: TicketDetailViewProps) {
     if (!window.confirm(`Are you sure you want to delete ticket #${ticket?.id?.slice(-6) || ''}? This action cannot be undone.`)) return;
     setIsDeleting(true);
     try {
-      await deleteDoc(doc(db, "tickets", ticketId));
+      await deleteDoc(companyDoc("tickets", ticketId));
       onBack();
     } catch(err) {
       console.error(err);

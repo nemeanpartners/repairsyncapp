@@ -7,6 +7,7 @@
 
 import { doc, getDoc, setDoc, increment } from 'firebase/firestore';
 import { db } from '../../firebase';
+import { companyDoc } from "../../lib/companyFirestore";
 
 export interface SearchLatencyMetrics {
   term: string;
@@ -126,7 +127,7 @@ export class SearchAnalyticsService {
 
     try {
       const todayString = new Date().toISOString().split('T')[0];
-      const docRef = doc(db, 'system_telemetry', `search_analytics_${todayString}`);
+      const docRef = companyDoc('system_telemetry', `search_analytics_${todayString}`);
       
       const updatePayload = {
         totalSearches: increment(statsToPush.totalSearches),

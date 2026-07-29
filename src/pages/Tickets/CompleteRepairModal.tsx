@@ -12,6 +12,7 @@ import { collection, addDoc } from "firebase/firestore";
 import axios from "axios";
 import { toast } from "sonner";
 import { Send, Clock } from "lucide-react";
+import { companyCollection } from "../../lib/companyFirestore";
 
 export interface CompleteRepairModalProps {
   isOpen: boolean;
@@ -47,7 +48,7 @@ export function CompleteRepairModal({
     setIsSubmitting(true);
     try {
       // 1. Add an internal note to the ticket
-      await addDoc(collection(db, "crm_notes"), {
+      await addDoc(companyCollection("crm_notes"), {
         ticket_id: ticketId,
         body: `Completed repair and sent SMS notification to customer indicating ready for pickup.`,
         subject: "Repair Completed",

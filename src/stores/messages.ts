@@ -3,6 +3,7 @@ import { collection, query, orderBy, limit, where } from "firebase/firestore";
 import { db } from "../firebase";
 import { RealtimeManager } from "../services/RealtimeManager";
 import { CostAnalyticsEngine } from "../services/CostAnalyticsEngine";
+import { companyCollection } from "../lib/companyFirestore";
 
 export interface ChatMessage {
   id: string;
@@ -92,14 +93,14 @@ export const useMessagesStore = create<MessagesState>((set, get) => {
       let q;
       if (customerId) {
         q = query(
-          collection(db, "messages"),
+          companyCollection("messages"),
           where("customerId", "==", String(customerId)),
           orderBy("timestamp", "desc"),
           limit(100)
         );
       } else {
         q = query(
-          collection(db, "messages"),
+          companyCollection("messages"),
           orderBy("timestamp", "desc"),
           limit(100)
         );

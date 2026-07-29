@@ -3,6 +3,7 @@ import { getFirestore, collection, addDoc, doc, updateDoc, serverTimestamp } fro
 import { getDb } from '../utils/firebase.js';
 import { normalizePhone } from '../utils/phone.js';
 import { updateConversationMetadata } from '../services/messaging.js';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 
 export const messagingRouter = Router();
 
@@ -26,7 +27,7 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
 
       if (!skipDbWrite) {
         // Save to Firestore optimistically
-        const messageDocRef = await addDoc(collection(db, 'messages'), {
+        const messageDocRef = await addDoc(companyCollection(db, 'messages'), {
           from: actualFrom,
           to: normalizedTo,
           text,
@@ -85,7 +86,7 @@ messagingRouter.post('/api/webhooks/rcs/delivery', async (req, res) => {
 
       // Verify Webhook Signature here (e.g. process.env.RCS_PROVIDER_WEBHOOK_SECRET)
 
-      const docRef = doc(db, 'messages', messageId);
+      const docRef = companyDoc(db, 'messages', messageId);
       await updateDoc(docRef, { status, error: error || null });
 
       res.status(200).send("OK");

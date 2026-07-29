@@ -3,6 +3,7 @@ import axios from 'axios';
 import fs from 'fs';
 import { collection, query, where, getDocs, doc, addDoc, serverTimestamp, runTransaction, limit, orderBy } from 'firebase/firestore';
 import { getDb } from '../utils/firebase.js';
+import { companyCollection, companyDoc } from '../companyFirestore.js';
 import { normalizePhone } from './mobilemessage.js'; // Assuming we export it
 
 export const maxotelRouter = Router();
@@ -38,12 +39,12 @@ maxotelRouter.all('/api/webhooks/maxotel', async (req, res) => {
           // Search CRM
           try {
             const queries = [
-              getDocs(query(collection(db, 'crm_customers'), where('phone', '==', localFormatFrom), limit(1))),
-              getDocs(query(collection(db, 'crm_customers'), where('mobile', '==', localFormatFrom), limit(1))),
-              getDocs(query(collection(db, 'crm_customers'), where('cell', '==', localFormatFrom), limit(1))),
-              getDocs(query(collection(db, 'crm_customers'), where('phone', '==', normalizedFrom), limit(1))),
-              getDocs(query(collection(db, 'crm_customers'), where('mobile', '==', normalizedFrom), limit(1))),
-              getDocs(query(collection(db, 'crm_customers'), where('cell', '==', normalizedFrom), limit(1)))
+              getDocs(query(companyCollection(db, 'crm_customers'), where('phone', '==', localFormatFrom), limit(1))),
+              getDocs(query(companyCollection(db, 'crm_customers'), where('mobile', '==', localFormatFrom), limit(1))),
+              getDocs(query(companyCollection(db, 'crm_customers'), where('cell', '==', localFormatFrom), limit(1))),
+              getDocs(query(companyCollection(db, 'crm_customers'), where('phone', '==', normalizedFrom), limit(1))),
+              getDocs(query(companyCollection(db, 'crm_customers'), where('mobile', '==', normalizedFrom), limit(1))),
+              getDocs(query(companyCollection(db, 'crm_customers'), where('cell', '==', normalizedFrom), limit(1)))
             ];
             const results = await Promise.all(queries);
             for (const snap of results) {
@@ -57,7 +58,7 @@ maxotelRouter.all('/api/webhooks/maxotel', async (req, res) => {
             }
 
             if (customerId) {
-              const q = query(collection(db, 'crm_tickets'), where('customer_id', '==', customerId));
+              const q = query(companyCollection(db, 'crm_tickets'), where('customer_id', '==', customerId));
               const crmTickSnap = await getDocs(q);
               const crmTickets = crmTickSnap.docs.map(d => ({ id: d.id, ...d.data() })).sort((a: any, b: any) => {
                 const aT = a.created_at?.seconds || 0;
@@ -97,7 +98,7 @@ maxotelRouter.all('/api/webhooks/maxotel', async (req, res) => {
                    throw err;
                  }
                } else {
-                 const recentLogSnap = await getDocs(query(collection(db, 'call_logs'), where('phone', '==', direction === 'inbound' ? localFormatFrom : localFormatTo), orderBy('timestamp', 'desc'), limit(10)));
+                 const recentLogSnap = await getDocs(query(companyCollection(db, 'call_logs'), where('phone', '==', direction === 'inbound' ? localFormatFrom : localFormatTo), orderBy('timestamp', 'desc'), limit(10)));
                  let isDuplicate = false;
                  recentLogSnap.forEach(d => {
                     const data = d.data();
@@ -131,7 +132,7 @@ maxotelRouter.all('/api/webhooks/maxotel', async (req, res) => {
           }
 
           if (customerId) {
-            await addDoc(collection(db, 'messages'), {
+            await addDoc(companyCollection(db, 'messages'), {
               from: localFormatFrom,
               to: localFormatTo,
               text: `📞 **${direction === 'inbound' ? 'Inbound' : 'Outbound'} Call**\nStatus: ${status}\nDuration: ${duration}s`,
@@ -149,7 +150,7 @@ maxotelRouter.all('/api/webhooks/maxotel', async (req, res) => {
             fs.appendFileSync('maxotel.log', `Saved Call for ${customerName} - Ticket: ${ticketNumberLog}\n`);
           }
 
-          await addDoc(collection(db, 'call_logs'), {
+          await addDoc(companyCollection(db, 'call_logs'), {
             customerName: customerName || 'Unknown Caller',
             phoneNumber: direction === 'inbound' ? localFormatFrom : localFormatTo,
             direction: direction === 'inbound' ? 'Incoming' : 'Outgoing',

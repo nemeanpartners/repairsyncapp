@@ -5,6 +5,7 @@ import { format, subDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, star
 import { TrendingUp, TrendingDown, DollarSign, Calendar, BarChart3, Activity, Download, Printer, PieChart, Users, CreditCard } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart as RePieChart, Pie, Cell, Legend } from 'recharts';
 import { Button } from "./ui/button";
+import { companyCollection } from "../lib/companyFirestore";
 
 const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#64748b'];
 
@@ -20,13 +21,13 @@ export function FinancialReportsView() {
 
   const fetchData = async () => {
     try {
-      const q = query(collection(db, "payments"), orderBy("created_at", "desc"));
+      const q = query(companyCollection("payments"), orderBy("created_at", "desc"));
       const snap = await getDocs(q);
       const data = snap.docs.map(doc => ({ id: doc.id, ...doc.data() }));
       setPayments(data);
 
       // Fetch basic customer info for top customers insight
-      const custSnap = await getDocs(collection(db, "crm_customers"));
+      const custSnap = await getDocs(companyCollection("crm_customers"));
       const custMap: Record<string, string> = {};
       custSnap.forEach(c => {
         const cData = c.data();

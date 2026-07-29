@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { companyCollection, companyDoc } from "../../lib/companyFirestore";
 
 export function InventoryView() {
   const [products, setProducts] = useState<any[]>([]);
@@ -28,7 +29,7 @@ export function InventoryView() {
 
   const fetchProducts = async () => {
     try {
-      const q = query(collection(db, "inventory_products"), orderBy("name", "asc"), limit(500));
+      const q = query(companyCollection("inventory_products"), orderBy("name", "asc"), limit(500));
       const snap = await getDocs(q);
       setProducts(snap.docs.map(d => ({ id: d.id, ...d.data() })));
     } catch (e) {
@@ -93,9 +94,9 @@ export function InventoryView() {
       };
 
       if (editingProduct) {
-        await updateDoc(doc(db, "inventory_products", editingProduct.id), dataToSave);
+        await updateDoc(companyDoc("inventory_products", editingProduct.id), dataToSave);
       } else {
-        await addDoc(collection(db, "inventory_products"), {
+        await addDoc(companyCollection("inventory_products"), {
           ...dataToSave,
           created_at: serverTimestamp()
         });
@@ -111,7 +112,7 @@ export function InventoryView() {
   const handleDelete = async (id: string) => {
     if (window.confirm("Are you sure you want to delete this product?")) {
       try {
-        await deleteDoc(doc(db, "inventory_products", id));
+        await deleteDoc(companyDoc("inventory_products", id));
         fetchProducts();
       } catch (error) {
         console.error("Error deleting product:", error);

@@ -14,6 +14,8 @@ export type AppSubscriptionStatus =
   | "grandfathered";
 
 export interface UserBillingProfile {
+  companyId: string;
+  companyName: string | null;
   hasAccess: boolean;
   billingRequired: boolean;
   subscriptionActive: boolean;
@@ -39,6 +41,8 @@ export function isGrandfatheredCreationTime(creationTime?: string | null) {
 export function buildDefaultBillingProfile(creationTime?: string | null): UserBillingProfile {
   const grandfathered = isGrandfatheredCreationTime(creationTime);
   return {
+    companyId: "default",
+    companyName: null,
     hasAccess: true,
     billingRequired: !grandfathered,
     subscriptionActive: grandfathered,

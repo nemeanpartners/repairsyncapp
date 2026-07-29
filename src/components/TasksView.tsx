@@ -12,6 +12,7 @@ type Task = any;
 
 import { db } from '../firebase';
 import { collection, query, getDocs, where } from 'firebase/firestore';
+import { companyCollection } from "../lib/companyFirestore";
 
 export interface TasksViewProps {
   tasks: Task[];
@@ -70,7 +71,7 @@ export function TasksView({
   useEffect(() => {
     const fetchTeamMembers = async () => {
       try {
-        const q = query(collection(db, "users"), where("role", "!=", ""));
+        const q = query(companyCollection("users"), where("role", "!=", ""));
         const snapshot = await getDocs(q);
         const data = snapshot.docs
           .map((doc) => ({
