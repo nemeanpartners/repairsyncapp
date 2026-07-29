@@ -1,11 +1,11 @@
 import { Router } from 'express';
-import { collection, addDoc, updateDoc, doc, serverTimestamp, getDocs, getDoc, query, orderBy, where, setDoc } from 'firebase/firestore';
+import { collection, collectionGroup, addDoc, updateDoc, doc, serverTimestamp, getDocs, getDoc, query, orderBy, where, setDoc } from 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
 
 export const accountRouter = Router();
 
-import { getServerDb } from '../firebase.js';
+import { getServerAuthPromise, getServerDb } from '../firebase.js';
 
 const getDb = () => getServerDb();
 
@@ -36,6 +36,30 @@ const checkAdmin = (req: any, res: any, next: any) => {
   }
   next();
 };
+
+function rankInviteCandidates(docs: any[], uid: string, email: string) {
+  return docs
+    .filter((candidate) => candidate.ref.path.startsWith("companies/"))
+    .map((candidate) => {
+      const [, companyId, , userDocId] = candidate.ref.path.split("/");
+      const data = candidate.data();
+      return { companyId, userDocId, data, ref: candidate.ref };
+    })
+    .filter((candidate) => candidate.companyId !== uid)
+    .sort((a, b) => {
+      const aScore =
+        Number(a.userDocId === email) * 8 +
+        Number(Boolean(a.data.invitedBy || a.data.invitedByEmail)) * 4 +
+        Number(a.data.hasAccess !== false) * 2 +
+        Number(Boolean(a.data.companyName));
+      const bScore =
+        Number(b.userDocId === email) * 8 +
+        Number(Boolean(b.data.invitedBy || b.data.invitedByEmail)) * 4 +
+        Number(b.data.hasAccess !== false) * 2 +
+        Number(Boolean(b.data.companyName));
+      return bScore - aScore;
+    });
+}
 
 async function createEmailPasswordUser(email: string, password: string) {
   const firebaseConfig = getFirebaseConfig();
@@ -109,6 +133,7 @@ accountRouter.post('/api/team/invite', checkAuth, checkAdmin, async (req: any, r
     };
 
     await setDoc(doc(db, 'companies', companyId, 'users', email), memberData, { merge: true });
+    await setDoc(doc(db, 'team_invites', email), memberData, { merge: true });
 
     if (authUid) {
       await setDoc(doc(db, 'companies', companyId, 'users', authUid), {
@@ -146,6 +171,113 @@ accountRouter.post('/api/team/invite', checkAuth, checkAdmin, async (req: any, r
     res.json({ success: true, uid: authUid, alreadyExists, authMethod });
   } catch (error: any) {
     res.status(500).json({ error: error.message });
+  }
+});
+
+accountRouter.post('/api/team/resolve-invite', checkAuth, async (req: any, res: any) => {
+  try {
+    await getServerAuthPromise();
+    const db = getDb();
+    const uid = String(req.user.uid || '').trim();
+    const email = String(req.body.email || req.headers['x-user-email'] || '').trim().toLowerCase();
+    const displayName = String(req.body.displayName || '').trim() || null;
+    const photoURL = String(req.body.photoURL || '').trim() || null;
+
+    if (!uid) return res.status(400).json({ error: 'Missing user ID' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ error: 'Invalid email address' });
+    }
+
+    const snapshot = await getDocs(query(collectionGroup(db, 'users'), where('email', '==', email)));
+    const invite = rankInviteCandidates(snapshot.docs, uid, email)[0];
+    if (!invite) {
+      return res.json({ found: false });
+    }
+
+    const companyId = invite.companyId;
+    const inviteData = invite.data || {};
+    const role = inviteData.role === 'admin' ? 'admin' : 'tech';
+    const permissions = Array.isArray(inviteData.permissions)
+      ? inviteData.permissions
+      : ['tickets', 'customers', 'messages', 'tasks', 'invoices', 'inventory'];
+    const companyName = inviteData.companyName || null;
+    const hasAccess = inviteData.hasAccess !== false;
+
+    const profile = {
+      uid,
+      email,
+      displayName: displayName || inviteData.displayName || null,
+      photoURL,
+      companyId,
+      companyName,
+      role,
+      permissions,
+      hasAccess,
+      billingRequired: false,
+      subscriptionActive: true,
+      subscriptionStatus: 'active',
+      subscriptionSource: 'company_invite',
+      invitedBy: inviteData.invitedBy || null,
+      updatedAt: serverTimestamp(),
+    };
+
+    await Promise.all([
+      setDoc(doc(db, 'users', uid), {
+        ...profile,
+        createdAt: serverTimestamp(),
+      }, { merge: true }),
+      setDoc(doc(db, 'companies', companyId, 'users', uid), {
+        ...profile,
+        linkedAt: serverTimestamp(),
+      }, { merge: true }),
+      setDoc(doc(db, 'companies', companyId, 'users', email), {
+        uid,
+        email,
+        displayName: profile.displayName,
+        photoURL,
+        companyId,
+        companyName,
+        role,
+        permissions,
+        hasAccess,
+        authMethod: inviteData.authMethod || 'google',
+        linkedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true }),
+      setDoc(doc(db, 'team_invites', email), {
+        uid,
+        email,
+        displayName: profile.displayName,
+        photoURL,
+        companyId,
+        companyName,
+        role,
+        permissions,
+        hasAccess,
+        authMethod: inviteData.authMethod || 'google',
+        invitedBy: inviteData.invitedBy || null,
+        linkedAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }, { merge: true }),
+    ]);
+
+    res.json({
+      found: true,
+      profile: {
+        companyId,
+        companyName,
+        role,
+        permissions,
+        hasAccess,
+        billingRequired: false,
+        subscriptionActive: true,
+        subscriptionStatus: 'active',
+        subscriptionSource: 'company_invite',
+      },
+    });
+  } catch (error: any) {
+    console.error('[team/resolve-invite] failed', error);
+    res.status(500).json({ error: error.message || 'Failed to resolve invite' });
   }
 });
 

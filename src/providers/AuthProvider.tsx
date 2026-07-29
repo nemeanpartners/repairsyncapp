@@ -46,6 +46,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const email = currentUser.email?.trim().toLowerCase();
     if (!email) return null;
 
+    const indexedInvite = await getDoc(doc(db, "team_invites", email)).catch((error) => {
+      console.warn("Failed to read indexed team invite", error);
+      return null;
+    });
+    if (indexedInvite?.exists()) {
+      const data = indexedInvite.data();
+      if (data?.companyId) {
+        return {
+          companyId: data.companyId as string,
+          data,
+        };
+      }
+    }
+
     const inviteQuery = query(collectionGroup(db, "users"), where("email", "==", email));
     const snapshot = await getDocs(inviteQuery);
     const companyInvites = snapshot.docs
@@ -76,6 +90,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     };
   };
 
+  const resolveInviteViaServer = async (currentUser: User) => {
+    const email = currentUser.email?.trim().toLowerCase();
+    if (!email) return null;
+
+    try {
+      const response = await axios.post("/api/team/resolve-invite", {
+        email,
+        displayName: currentUser.displayName || null,
+        photoURL: currentUser.photoURL || null,
+      }, {
+        headers: {
+          "x-user-id": currentUser.uid,
+          "x-user-email": email,
+        },
+      });
+      if (!response.data?.found || !response.data?.profile?.companyId) {
+        return null;
+      }
+      return {
+        companyId: response.data.profile.companyId as string,
+        data: response.data.profile,
+      };
+    } catch (error) {
+      console.warn("Server invite resolution failed", error);
+      return null;
+    }
+  };
+
   const syncUserProfile = async (currentUser: User) => {
     if (currentUser.isAnonymous) {
       const demoProfile = {
@@ -96,7 +138,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const fallbackCompanyId = getFallbackCompanyId(currentUser);
 
     if (!snapshot.exists()) {
-      const invite = await findInviteForUser(currentUser);
+      const invite = await findInviteForUser(currentUser) || await resolveInviteViaServer(currentUser);
       const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
       const companyId = invite?.companyId || fallbackCompanyId;
       const role: UserBillingProfile["role"] =
@@ -163,7 +205,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const invite = await findInviteForUser(currentUser).catch((error) => {
       console.warn("Failed to check company invite", error);
       return null;
-    });
+    }) || await resolveInviteViaServer(currentUser);
     const invitedCompanyId = invite?.companyId;
     const shouldUseInvite =
       Boolean(invite) &&

@@ -196,6 +196,20 @@ export const TeamMembersSettings: React.FC = () => {
           addedAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         }, { merge: true });
+        await setDoc(doc(db, 'team_invites', email), {
+          email,
+          displayName: newDisplayName.trim() || null,
+          role: 'tech',
+          authMethod,
+          permissions: ["tickets", "customers", "messages", "tasks", "invoices", "inventory"],
+          hasAccess: true,
+          companyId: profile?.companyId || null,
+          companyName: profile?.companyName || null,
+          invitedBy: user?.uid || null,
+          invitedByEmail: user?.email || null,
+          addedAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
+        }, { merge: true });
         toast.success(`Access granted for ${email}. They can sign in with ${authMethod === "apple" ? "Apple" : "Google"}.`);
       }
       setNewEmail('');
@@ -222,6 +236,7 @@ export const TeamMembersSettings: React.FC = () => {
           try {
             setIsLoading(true);
             await deleteDoc(companyDoc('users', member.id));
+            await deleteDoc(doc(db, 'team_invites', member.email)).catch(() => {});
             if (member.uid && member.uid !== member.id) {
               await deleteDoc(companyDoc('users', member.uid)).catch(() => {});
               await setDoc(doc(db, 'users', member.uid), {

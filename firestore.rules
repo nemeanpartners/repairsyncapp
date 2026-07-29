@@ -40,6 +40,9 @@ service cloud.firestore {
       ); 
     }
     function getAuthToken() { return request.auth.token; }
+    function authEmail() {
+      return ('email' in request.auth.token) ? request.auth.token.email.lower() : '';
+    }
     function isGuest() { return request.auth != null && getAuthToken().firebase.sign_in_provider == 'anonymous'; }
     function isStaff() {
       return isSignedIn() && (
@@ -53,6 +56,16 @@ service cloud.firestore {
     // Server webhook auth workaround
     function isServerSigned() {
       return incoming().uid in ['api-server', 'system_webhook', 'system_migration', 'webhook'];
+    }
+    function hasOwnTeamInvite() {
+      return isSignedIn() &&
+        authEmail() != '' &&
+        exists(/databases/$(database)/documents/team_invites/$(authEmail()));
+    }
+    function matchesOwnTeamInvite(data) {
+      return hasOwnTeamInvite() &&
+        data.companyId == get(/databases/$(database)/documents/team_invites/$(authEmail())).data.companyId &&
+        data.role == get(/databases/$(database)/documents/team_invites/$(authEmail())).data.role;
     }
 
     // -------------------------------------------------------------------------
@@ -73,12 +86,17 @@ service cloud.firestore {
       // Admin can create anywhere, user can only create their own.
       allow create: if isSignedIn() && isValidId(userId) && isValidUser(incoming()) && (
         isAdmin() || 
-        (request.auth.uid == userId && (!('role' in incoming()) || incoming().role == ''))
+        (request.auth.uid == userId && (
+          !('role' in incoming()) ||
+          incoming().role == '' ||
+          matchesOwnTeamInvite(incoming())
+        ))
       );
       // Validated Update
       allow update: if isSignedIn() && isValidUser(incoming()) && (
         isAdmin() || 
-        (request.auth.uid == userId && incoming().diff(existing()).affectedKeys().hasOnly([
+        (request.auth.uid == userId && (
+          incoming().diff(existing()).affectedKeys().hasOnly([
           'displayName',
           'uid',
           'email',
@@ -98,9 +116,27 @@ service cloud.firestore {
           'stripeSubscriptionId',
           'subscriptionCurrentPeriodEnd',
           'subscriptionCheckoutCompletedAt'
-        ]))
+          ]) ||
+          matchesOwnTeamInvite(incoming())
+        ))
       );
       allow delete: if isAdmin();
+    }
+
+    // -------------------------------------------------------------------------
+    // TEAM INVITES
+    // Top-level invite index used before a Google/Apple user has company access.
+    // Document IDs are the lowercase invited email address.
+    // -------------------------------------------------------------------------
+    function isOwnInvite(inviteId) {
+      return isSignedIn() &&
+        ('email' in request.auth.token) &&
+        request.auth.token.email.lower() == inviteId;
+    }
+    match /team_invites/{inviteId} {
+      allow get: if isOwnInvite(inviteId) || isAdmin();
+      allow list: if false;
+      allow create, update, delete: if isAdmin() || isServerSigned();
     }
 
     // -------------------------------------------------------------------------
