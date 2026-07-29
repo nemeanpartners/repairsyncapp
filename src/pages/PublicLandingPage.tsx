@@ -331,14 +331,6 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
         >
           RepairSync helps repair businesses manage repair tickets, customer communication, invoicing, quotes, inventory, technician workflows, and automated repair shop operations from one secure app.
         </motion.p>
-        <motion.p
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.7, delay: 0.35 }}
-          className="mt-3 text-xs sm:text-sm text-zinc-500 max-w-2xl leading-relaxed"
-        >
-          If you choose Continue with Google, RepairSync uses your Google account only to sign you in, identify your user profile, and protect access to your repair business workspace.
-        </motion.p>
 
         {/* Responsive Hero CTA */}
         <motion.div 
