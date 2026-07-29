@@ -11,6 +11,7 @@ import { auth } from "../firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { toast } from "sonner";
 import { 
+  Apple,
   Sparkles, 
   MessageSquare, 
   ArrowRight, 
@@ -1520,6 +1521,17 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                 </div>
 
                 <div className="space-y-3 mb-6">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsAuthModalOpen(false);
+                      onLogin();
+                    }}
+                    className="w-full min-h-11 py-3 bg-white hover:bg-zinc-50 border border-zinc-200 text-zinc-800 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-3 shadow-[0_1px_2px_rgba(0,0,0,0.18)]"
+                  >
+                    <span className="text-sm font-black text-[#4285f4] leading-none">G</span>
+                    Continue with Google
+                  </button>
                   {onAppleLogin ? (
                     <button
                       type="button"
@@ -1527,21 +1539,12 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                         setIsAuthModalOpen(false);
                         onAppleLogin();
                       }}
-                      className="w-full min-h-11 py-3 bg-white hover:bg-zinc-100 border border-white text-zinc-950 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
+                      className="w-full min-h-11 py-3 bg-black hover:bg-zinc-900 border border-black text-white rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2 shadow-[0_1px_2px_rgba(0,0,0,0.25)]"
                     >
-                      {isSignUp ? "Sign up with Apple" : "Sign in with Apple"}
+                      <Apple className="w-4 h-4 fill-white stroke-white" aria-hidden="true" />
+                      Continue with Apple
                     </button>
                   ) : null}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsAuthModalOpen(false);
-                      onLogin();
-                    }}
-                    className="w-full min-h-11 py-3 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-100 rounded-xl text-sm font-semibold transition-all cursor-pointer flex items-center justify-center gap-2"
-                  >
-                    Sign in to RepairSync with Google
-                  </button>
                   <div className="relative flex py-1 items-center">
                     <div className="flex-grow border-t border-zinc-900"></div>
                     <span className="flex-shrink mx-4 text-[9px] uppercase font-mono font-bold text-zinc-650">
