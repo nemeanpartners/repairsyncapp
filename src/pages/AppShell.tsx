@@ -360,7 +360,7 @@ export function AppShell() {
       {/* Mobile Backdrop */}
       {isMobileMenuOpen && (
         <div
-          className="fixed inset-0 bg-black/20 z-40 md:hidden"
+          className="fixed inset-0 bg-black/20 z-[70] md:hidden"
           onClick={() => setIsMobileMenuOpen(false)}
         />
       )}
@@ -368,7 +368,7 @@ export function AppShell() {
       {/* Left Sidebar */}
       <aside
         className={`
-        fixed inset-y-0 left-0 z-50 bg-white border-r border-zinc-200 flex flex-col transition-[width,transform] duration-300 ease-in-out print:hidden
+        fixed inset-y-0 left-0 z-[80] bg-white border-r border-zinc-200 flex flex-col transition-[width,transform] duration-300 ease-in-out print:hidden
         md:relative md:translate-x-0 shrink-0
         ${isDesktopCollapsed ? "w-[240px] md:w-[68px]" : "w-max min-w-[240px] md:min-w-[280px]"}
         ${isMobileMenuOpen ? "translate-x-0" : "-translate-x-full"}
@@ -396,7 +396,7 @@ export function AppShell() {
         </div>
 
         <DragDropContext onDragEnd={onDragEnd}>
-        <nav className="flex-1 overflow-y-auto overflow-x-hidden py-4 px-2 space-y-6">
+        <nav className="flex-1 overflow-y-auto overflow-x-hidden px-2 pt-4 pb-[calc(6rem+env(safe-area-inset-bottom))] md:pb-4 space-y-6">
           {navGroups.map((group) => {
             return (
               <div key={group.title} className="space-y-1">
@@ -730,7 +730,7 @@ export function AppShell() {
           />
         )}
 
-        <BottomNav unreadCount={unreadCount} />
+        {!isMobileMenuOpen && <BottomNav unreadCount={unreadCount} />}
       </main>
     </div>
   );

@@ -4,6 +4,25 @@ import { db } from "../../../firebase";
 import { AlertCircle, AlertTriangle, Info, CheckCircle2, History, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
+function toMillis(value: any) {
+  if (!value) return Date.now();
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : Date.now();
+}
+
+function displayLogValue(value: any, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "object") {
+    if (typeof value?.toDate === "function" || typeof value?.seconds === "number") {
+      return new Date(toMillis(value)).toLocaleString();
+    }
+    return JSON.stringify(value);
+  }
+  return String(value);
+}
+
 export function SyncLogsPanel() {
   const [logs, setLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -25,7 +44,7 @@ export function SyncLogsPanel() {
       const data = snap.docs.map((doc) => ({
         id: doc.id,
         ...doc.data(),
-        timestamp: doc.data().timestamp?.toDate() || new Date()
+        timestamp: toMillis(doc.data().timestamp)
       }));
       setLogs(data);
     } catch (e) {
@@ -102,7 +121,7 @@ export function SyncLogsPanel() {
                       log.level === 'warning' ? 'text-amber-900' :
                       'text-zinc-900'
                     }`}>
-                      {log.message}
+                      {displayLogValue(log.message, "Sync event")}
                     </p>
                     <div className="shrink-0">
                       {getLevelBadge(log.level)}
@@ -113,12 +132,12 @@ export function SyncLogsPanel() {
                       log.level === 'error' ? 'text-rose-600' :
                       log.level === 'warning' ? 'text-amber-600' :
                       'text-zinc-500'
-                    }`} title={log.details}>
-                      {log.details}
+                    }`} title={displayLogValue(log.details)}>
+                      {displayLogValue(log.details)}
                     </p>
                   )}
                   <p className="text-xs text-zinc-400 mt-2">
-                    {new Date(log.timestamp).toLocaleString()}
+                    {new Date(toMillis(log.timestamp)).toLocaleString()}
                   </p>
                 </div>
               </div>

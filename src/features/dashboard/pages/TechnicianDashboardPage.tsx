@@ -37,7 +37,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "motion/react";
-import { collection, query, where, orderBy, onSnapshot, limit, getDocs, updateDoc, doc, addDoc, serverTimestamp, getDoc } from "firebase/firestore";
+import { collection, query, where, orderBy, onSnapshot, limit, getDocs, updateDoc, doc, addDoc, serverTimestamp, getDoc, QueryConstraint } from "firebase/firestore";
 import { db, storage } from "../../../firebase";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { toast } from "sonner";
@@ -51,6 +51,39 @@ const FAST_NOTES_PRESETS = [
   "⚙️ Calibration: recalibrated FaceID/TouchID elements and verified sensor arrays.",
   "🧪 Multi-Point QC passes: Stress tested motherboard, CPU thermal zones and speaker units. Perfect pass."
 ];
+
+function toMillis(value: any) {
+  if (!value) return 0;
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function formatTime(value: any) {
+  const millis = toMillis(value);
+  if (!millis) return "";
+  return new Date(millis).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+}
+
+function displayValue(value: any, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  if (typeof value === "object") {
+    const millis = toMillis(value);
+    if (millis) return new Date(millis).toLocaleString();
+    return fallback;
+  }
+  return String(value);
+}
+
+async function safeGetCollection(collectionName: string, constraints: QueryConstraint[] = []) {
+  try {
+    return await getDocs(query(collection(db, collectionName), ...constraints));
+  } catch (error) {
+    console.error(`Technician dashboard query failed for ${collectionName}`, error);
+    return await getDocs(query(collection(db, collectionName), limit(50)));
+  }
+}
 
 export function TechnicianDashboard() {
   const { user } = useAuth();
@@ -115,9 +148,20 @@ export function TechnicianDashboard() {
     const unsub = onSnapshot(q, (snap) => {
       setAssignedTickets(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       setIsLoading(false);
-    }, (err) => {
+    }, async (err) => {
       console.error("Failed to load assigned tickets:", err);
-      setIsLoading(false);
+      try {
+        const fallbackSnap = await safeGetCollection("crm_tickets", [limit(50)]);
+        const fallbackTickets = fallbackSnap.docs
+          .map(d => ({ id: d.id, ...d.data() }))
+          .filter((ticket: any) => !ticket.tech_id || ticket.tech_id === user.uid || ticket.demoAccount)
+          .sort((a: any, b: any) => toMillis(b.updated_at) - toMillis(a.updated_at));
+        setAssignedTickets(fallbackTickets);
+      } catch (fallbackError) {
+        console.error("Fallback assigned tickets query failed:", fallbackError);
+      } finally {
+        setIsLoading(false);
+      }
     });
 
     return unsub;
@@ -128,12 +172,7 @@ export function TechnicianDashboard() {
     let active = true;
     const fetchConversations = async () => {
       try {
-        const q = query(
-          collection(db, "conversations"),
-          orderBy("updatedAt", "desc"),
-          limit(40)
-        );
-        const snap = await getDocs(q);
+        const snap = await safeGetCollection("conversations", [orderBy("updatedAt", "desc"), limit(40)]);
         if (active) setAllConversations(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error("Failed to fetch messages inbox:", err);
@@ -152,12 +191,7 @@ export function TechnicianDashboard() {
     let active = true;
     const fetchParts = async () => {
       try {
-        const q = query(
-          collection(db, "parts_orders"),
-          orderBy("createdAt", "desc"),
-          limit(100)
-        );
-        const snap = await getDocs(q);
+        const snap = await safeGetCollection("parts_orders", [orderBy("createdAt", "desc"), limit(100)]);
         if (active) setPartsOrders(snap.docs.map(d => ({ id: d.id, ...d.data() })));
       } catch (err) {
         console.error("Failed to fetch parts index:", err);
@@ -235,6 +269,9 @@ export function TechnicianDashboard() {
             if (!snap.empty) {
               setCustomer({ id: snap.docs[0].id, ...snap.docs[0].data() });
             }
+         })
+         .catch((error) => {
+            console.error("TechnicianDashboardPage customer lookup error:", error);
          });
     }
 
@@ -518,7 +555,8 @@ export function TechnicianDashboard() {
      const todayStr = new Date().toISOString().split("T")[0];
      return assignedTickets.filter(t => {
         const isResolved = t.status === "Ready for Pickup" || t.status === "Closed" || t.status === "Resolved";
-        const dateStr = t.updated_at ? t.updated_at.split("T")[0] : "";
+        const millis = toMillis(t.updated_at);
+        const dateStr = millis ? new Date(millis).toISOString().split("T")[0] : "";
         return isResolved && dateStr === todayStr;
      }).length;
   }, [assignedTickets]);
@@ -628,12 +666,12 @@ export function TechnicianDashboard() {
                                 <div className="space-y-1 min-w-0 pr-2">
                                    <div className="flex items-center gap-2 font-mono">
                                       <span className="text-[9px] font-black text-red-400 uppercase tracking-tight bg-red-950/30 border border-red-800/40 px-1 py-0.5 rounded">
-                                        #{ticket.number}
+                                        #{displayValue(ticket.number, ticket.id)}
                                       </span>
                                       <span className="text-[9px] font-black bg-rose-500/10 text-rose-400 uppercase px-1 rounded">URGENT</span>
                                    </div>
-                                   <h4 className="font-bold text-sm text-white truncate">{ticket.brand} {ticket.device_model}</h4>
-                                   <p className="text-xs text-red-100/70 truncate">{ticket.subject || "No problem detail logged"}</p>
+                                   <h4 className="font-bold text-sm text-white truncate">{displayValue(ticket.brand)} {displayValue(ticket.device_model)}</h4>
+                                   <p className="text-xs text-red-100/70 truncate">{displayValue(ticket.subject, "No problem detail logged")}</p>
                                 </div>
                                 <ChevronRight className="w-5 h-5 text-red-400/80 shrink-0" />
                              </div>
@@ -695,22 +733,22 @@ export function TechnicianDashboard() {
                                    <div className="flex items-start gap-3 min-w-0 pr-4">
                                       {/* Device Brand Initial */}
                                       <div className="w-10 h-10 rounded-xl bg-zinc-950 border border-zinc-800 font-black text-sm text-[#10b981] flex items-center justify-center shrink-0 uppercase">
-                                         {ticket.brand?.charAt(0) || "D"}
+                                         {displayValue(ticket.brand, "D").charAt(0) || "D"}
                                       </div>
                                       <div className="space-y-0.5 min-w-0">
                                          <div className="flex items-center gap-2 flex-wrap font-mono">
-                                            <span className="text-xs font-medium text-zinc-500 leading-none mr-2">#{ticket.number}</span>
+                                            <span className="text-xs font-medium text-zinc-500 leading-none mr-2">#{displayValue(ticket.number, ticket.id)}</span>
                                             <span className={`px-1 rounded font-sans leading-none text-[8.5px] font-semibold uppercase tracking-wide bg-zinc-800/80 ${
                                                ticket.status === 'Diagnosing' ? 'text-blue-400' :
                                                ticket.status === 'In Progress' ? 'text-amber-400' :
                                                ticket.status === 'Waiting for Parts' ? 'text-rose-400 bg-rose-950/20' :
                                                'text-zinc-300'
                                             }`}>
-                                               {ticket.status}
+                                               {displayValue(ticket.status, "New")}
                                             </span>
                                          </div>
-                                         <h4 className="font-extrabold text-sm text-white truncate pr-1">{ticket.brand} {ticket.device_model}</h4>
-                                         <p className="text-xs text-zinc-400 truncate leading-snug">{ticket.subject || "No core details logged"}</p>
+                                         <h4 className="font-extrabold text-sm text-white truncate pr-1">{displayValue(ticket.brand)} {displayValue(ticket.device_model)}</h4>
+                                         <p className="text-xs text-zinc-400 truncate leading-snug">{displayValue(ticket.subject, "No core details logged")}</p>
                                       </div>
                                    </div>
                                    <ChevronRight className="w-5 h-5 text-zinc-500 group-hover:text-zinc-300 shrink-0" />
@@ -772,23 +810,23 @@ export function TechnicianDashboard() {
                                  <div className="space-y-1.5 min-w-0 pr-4">
                                     <div className="flex items-center gap-2 flex-wrap">
                                        <span className="font-extrabold text-sm text-white">
-                                          {conv.customerName || conv.phone || "Intake Customer"}
+                                          {displayValue(conv.customerName || conv.phone, "Intake Customer")}
                                        </span>
                                        {conv.isUnread && (
                                           <span className="w-2 h-2 rounded-full bg-blue-500 shadow-md shadow-blue-500" />
                                        )}
                                     </div>
                                     <p className={`text-xs truncate ${conv.isUnread ? 'text-zinc-200 font-semibold' : 'text-zinc-400'}`}>
-                                       {conv.lastMessagePreview || "No current communications"}
+                                       {displayValue(conv.lastMessagePreview || conv.lastMessage, "No current communications")}
                                     </p>
                                     
                                     <div className="flex items-center gap-3">
                                        <span className="text-xs text-zinc-500 font-bold font-mono">
-                                          {conv.updatedAt ? new Date(conv.updatedAt).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ""}
+                                          {formatTime(conv.updatedAt)}
                                        </span>
                                        {linkedTicket && (
                                           <span className="bg-[#10b981]/10 text-[#10b981] border border-[#10b981]/20 font-bold font-mono text-[9px] px-1.5 py-0.5 rounded uppercase">
-                                             Linked Job #{linkedTicket.number}
+                                             Linked Job #{displayValue(linkedTicket.number, linkedTicket.id)}
                                           </span>
                                        )}
                                     </div>
@@ -835,13 +873,13 @@ export function TechnicianDashboard() {
                               <div className="space-y-1 min-w-0 pr-3">
                                  <div className="flex items-center gap-2">
                                     <Package className="w-4 h-4 text-zinc-500 shrink-0" />
-                                    <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">{part.supplier || "Vendor Store / Scrap"}</span>
+                                    <span className="text-xs text-zinc-400 font-bold uppercase tracking-wider">{displayValue(part.supplier, "Vendor Store / Scrap")}</span>
                                  </div>
-                                 <h4 className="font-extrabold text-sm text-white truncate">{part.partName || "Unknown Component"}</h4>
+                                 <h4 className="font-extrabold text-sm text-white truncate">{displayValue(part.partName, "Unknown Component")}</h4>
                                  <div className="flex items-center gap-2 text-xs text-zinc-500 font-bold">
-                                    <span>Client: {part.customerName || "N/A"}</span>
+                                    <span>Client: {displayValue(part.customerName, "N/A")}</span>
                                     <span>•</span>
-                                    {part.ticketNumber && <span className="font-mono text-[#10b981]">Job #{part.ticketNumber}</span>}
+                                    {part.ticketNumber && <span className="font-mono text-[#10b981]">Job #{displayValue(part.ticketNumber)}</span>}
                                  </div>
                               </div>
                               <span className={`px-2 py-1 rounded text-[9px] font-semibold uppercase tracking-wider ${
@@ -849,7 +887,7 @@ export function TechnicianDashboard() {
                                  part.status === "ordered" ? "bg-blue-500/10 text-blue-400 border border-blue-500/20" :
                                  "bg-zinc-800 text-zinc-400 border border-zinc-700"
                               }`}>
-                                 {part.status || "ordered"}
+                                 {displayValue(part.status, "ordered")}
                               </span>
                            </div>
                         ))
@@ -937,12 +975,12 @@ export function TechnicianDashboard() {
                   <ArrowLeft className="w-4 h-4" /> Back
                </button>
                <div className="text-center min-w-0 px-2">
-                  <span className="text-xs font-mono text-zinc-500 font-bold">#{activeTicket?.number || "JOB"}</span>
-                  <h4 className="font-extrabold text-sm text-white truncate max-w-[140px] md:max-w-xs">{activeTicket?.brand} {activeTicket?.device_model}</h4>
+                  <span className="text-xs font-mono text-zinc-500 font-bold">#{displayValue(activeTicket?.number, "JOB")}</span>
+                  <h4 className="font-extrabold text-sm text-white truncate max-w-[140px] md:max-w-xs">{displayValue(activeTicket?.brand)} {displayValue(activeTicket?.device_model)}</h4>
                </div>
                <div>
                   <span className="bg-emerald-600 text-white font-black text-[9px] uppercase tracking-wider px-2 py-1 rounded">
-                     {activeTicket?.status}
+                     {displayValue(activeTicket?.status, "New")}
                   </span>
                </div>
             </div>
@@ -951,11 +989,11 @@ export function TechnicianDashboard() {
             <div className="bg-zinc-900/40 p-3 border-b border-zinc-950 flex items-center justify-between text-xs font-semibold px-4 shrink-0 text-zinc-400">
                <div className="flex items-center gap-1.5">
                   <User className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
-                  <span className="truncate max-w-[120px]">{customer ? `${customer.firstname || ''} ${customer.lastname || ''}`.trim() : "Intake Client"}</span>
+                  <span className="truncate max-w-[120px]">{customer ? `${displayValue(customer.firstname)} ${displayValue(customer.lastname)}`.trim() : "Intake Client"}</span>
                </div>
                <div className="flex items-center gap-4">
                   {customer?.phone && (
-                     <a href={`tel:${customer.phone}`} className="flex items-center gap-1 hover:text-white transition-colors py-1 px-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                     <a href={`tel:${displayValue(customer.phone)}`} className="flex items-center gap-1 hover:text-white transition-colors py-1 px-2 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                         <Phone className="w-3.5 h-3.5" />
                         <span>Call</span>
                      </a>
@@ -990,13 +1028,13 @@ export function TechnicianDashboard() {
                         <span className="text-[9px] font-semibold uppercase tracking-wide text-[#10b981] block mb-1">
                           Assigned Problem Diagnosis
                         </span>
-                        <p className="text-xs font-semibold text-zinc-300 leading-snug">{activeTicket?.subject || "No descriptions detailed on ticket intake."}</p>
+                        <p className="text-xs font-semibold text-zinc-300 leading-snug">{displayValue(activeTicket?.subject, "No descriptions detailed on ticket intake.")}</p>
                      </div>
                      
                      <div className="rounded-2xl">
                         <QCChecklist 
                           ticketId={selectedTicketId || ""} 
-                          category={activeTicket?.repair_category || activeTicket?.device_model || "smartphone"} 
+                          category={displayValue(activeTicket?.repair_category || activeTicket?.device_model, "smartphone")} 
                         />
                      </div>
                   </div>
@@ -1011,9 +1049,9 @@ export function TechnicianDashboard() {
                               <div key={note.id} className="bg-zinc-900/40 border border-zinc-900 p-3.5 rounded-xl space-y-2">
                                  <div className="flex justify-between items-start text-xs text-zinc-500 font-bold">
                                     <span>{note.tech || "System Tech"}</span>
-                                    <span>{note.created_at ? new Date(note.created_at).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}) : ""}</span>
+                                    <span>{formatTime(note.created_at)}</span>
                                  </div>
-                                 <p className="text-xs text-zinc-300 leading-relaxed font-sans" dangerouslySetInnerHTML={{ __html: note.body }} />
+                                 <p className="text-xs text-zinc-300 leading-relaxed font-sans" dangerouslySetInnerHTML={{ __html: displayValue(note.body) }} />
                               </div>
                            ))
                         ) : (
@@ -1075,9 +1113,9 @@ export function TechnicianDashboard() {
                                            : "bg-zinc-850 text-zinc-200 rounded-tl-none border border-zinc-800"
                                        }`}
                                     >
-                                       <p className="font-semibold leading-relaxed font-sans">{msg.text}</p>
+                                       <p className="font-semibold leading-relaxed font-sans">{displayValue(msg.text)}</p>
                                        <span className="text-[8px] opacity-70 block text-right font-mono">
-                                          {msg.timestamp ? new Date(msg.timestamp?.seconds ? msg.timestamp.seconds * 1000 : Date.now()).toLocaleTimeString([], {hour:'2-digit', minute:'2-digit'}) : ""}
+                                          {formatTime(msg.timestamp)}
                                        </span>
                                     </div>
                                  </div>
@@ -1130,7 +1168,7 @@ export function TechnicianDashboard() {
                      <div className="bg-zinc-900/60 border border-zinc-800 p-5 rounded-2xl text-center">
                         <Wrench className="w-8 h-8 mx-auto text-zinc-600 mb-2.5" />
                         <h4 className="font-extrabold text-xs uppercase tracking-wide text-[#10b981]">Parts inventory lookup</h4>
-                        <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">Requires spare component assignment. Request matching parts for {activeTicket?.brand}.</p>
+                        <p className="text-xs text-zinc-400 mt-1 max-w-xs mx-auto">Requires spare component assignment. Request matching parts for {displayValue(activeTicket?.brand, "this device")}.</p>
                         <button 
                           onClick={() => {
                              toast.success("Dispatcher request sent to spare parts stack!");
@@ -1181,7 +1219,7 @@ export function TechnicianDashboard() {
                <div className="relative group flex flex-col items-center justify-center cursor-pointer">
                   <select 
                      onChange={(e) => updateTicketStatus(selectedTicketId || "", e.target.value)}
-                     value={activeTicket?.status || "New"}
+                     value={displayValue(activeTicket?.status, "New")}
                      className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-25"
                   >
                      <option value="New">New Intake</option>

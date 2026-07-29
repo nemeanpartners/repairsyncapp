@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
 import { AppShell } from './pages/AppShell';
+import { ErrorBoundary } from './components/ErrorBoundary';
 import { AuthProvider } from './providers/AuthProvider';
 import { ShopProvider } from './providers/ShopProvider';
 import { SettingsProvider } from './providers/SettingsProvider';
@@ -14,7 +15,9 @@ try {
         <SettingsProvider>
           <ShopProvider>
             <BrowserRouter>
-              <AppShell />
+              <ErrorBoundary>
+                <AppShell />
+              </ErrorBoundary>
             </BrowserRouter>
           </ShopProvider>
         </SettingsProvider>

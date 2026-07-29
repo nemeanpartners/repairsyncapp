@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { collection, query, limit, getDocs, orderBy, where } from "firebase/firestore";
+import { collection, query, limit, getDocs, orderBy, where, QueryConstraint } from "firebase/firestore";
 import { db } from "../../../firebase";
 import { Ticket, Users, Package, MessageSquare, ArrowRight, Activity, CircleDollarSign, LayoutDashboard, AlertCircle, ArrowLeft, Send, CheckCircle2 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -17,6 +17,37 @@ export function DashboardView() {
     return <TechnicianDashboard />;
   }
 
+  return <AdminDashboardView />;
+}
+
+async function safeGetCollection(collectionName: string, constraints: QueryConstraint[] = []) {
+  try {
+    return await getDocs(query(collection(db, collectionName), ...constraints));
+  } catch (error) {
+    console.error(`Dashboard query failed for ${collectionName}`, error);
+    return await getDocs(query(collection(db, collectionName), limit(50)));
+  }
+}
+
+function toMillis(value: any) {
+  if (!value) return 0;
+  if (typeof value?.toDate === "function") return value.toDate().getTime();
+  if (typeof value?.seconds === "number") return value.seconds * 1000;
+  const parsed = new Date(value).getTime();
+  return Number.isFinite(parsed) ? parsed : 0;
+}
+
+function displayValue(value: any, fallback = "") {
+  if (value === null || value === undefined) return fallback;
+  const millis = toMillis(value);
+  if (millis && (typeof value === "object" || /^\d{4}-\d{2}-\d{2}T/.test(String(value)))) {
+    return new Date(millis).toLocaleString();
+  }
+  if (typeof value === "object") return fallback;
+  return String(value);
+}
+
+function AdminDashboardView() {
   const navigate = useNavigate();
   const [stats, setStats] = useState({
     openTickets: 0,
@@ -36,15 +67,15 @@ export function DashboardView() {
     const fetchDashboardData = async () => {
       try {
         // Quick stats
-        const ticketsSnap = await getDocs(query(collection(db, "crm_tickets"), orderBy("updated_at", "desc"), limit(1000)));
-        const oldTicketsSnap = await getDocs(query(collection(db, "tickets"), orderBy("updated_at", "desc"), limit(1000)));
-        const msgsSnap = await getDocs(query(collection(db, "conversations"), where("isUnread", "==", true), limit(50)));
-        const custSnap = await getDocs(query(collection(db, "crm_customers"), limit(50)));
+        const ticketsSnap = await safeGetCollection("crm_tickets", [orderBy("updated_at", "desc"), limit(1000)]);
+        const oldTicketsSnap = await safeGetCollection("tickets", [orderBy("updated_at", "desc"), limit(1000)]);
+        const msgsSnap = await safeGetCollection("conversations", [where("isUnread", "==", true), limit(50)]);
+        const custSnap = await safeGetCollection("crm_customers", [limit(50)]);
         
-        const recentTicketsSnap = await getDocs(query(collection(db, "crm_tickets"), orderBy("updated_at", "desc"), limit(5)));
-        const convSnap = await getDocs(query(collection(db, "conversations"), orderBy("updatedAt", "desc"), limit(100)));
-        const tasksSnap = await getDocs(query(collection(db, "tasks"), limit(100)));
-        const partsSnap = await getDocs(query(collection(db, "parts_orders"), orderBy("createdAt", "desc"), limit(5)));
+        const recentTicketsSnap = await safeGetCollection("crm_tickets", [orderBy("updated_at", "desc"), limit(5)]);
+        const convSnap = await safeGetCollection("conversations", [orderBy("updatedAt", "desc"), limit(100)]);
+        const tasksSnap = await safeGetCollection("tasks", [limit(100)]);
+        const partsSnap = await safeGetCollection("parts_orders", [orderBy("createdAt", "desc"), limit(5)]);
 
         const crmOpen = ticketsSnap.docs.filter(d => {
           const s = String(d.data().status || "New").toLowerCase();
@@ -67,8 +98,8 @@ export function DashboardView() {
         const allTasks = tasksSnap.docs.map(d => ({ id: d.id, ...d.data() }))
           .filter((t: any) => t.status === 'open')
           .sort((a: any, b: any) => {
-            const dateA = a.dueDate ? new Date(a.dueDate).getTime() : 0;
-            const dateB = b.dueDate ? new Date(b.dueDate).getTime() : 0;
+            const dateA = toMillis(a.dueDate);
+            const dateB = toMillis(b.dueDate);
             return dateA - dateB;
           });
         const recentTasks = allTasks.slice(0, 5);
@@ -182,10 +213,10 @@ export function DashboardView() {
                   {stats.recentTickets.map(ticket => (
                     <div key={ticket.id} onClick={() => navigate(`/tickets/${ticket.id}`)} className="p-3 hover:bg-zinc-50 cursor-pointer transition-colors flex items-center justify-between">
                       <div className="truncate pr-4">
-                        <p className="font-semibold text-sm text-zinc-900 truncate">{ticket.subject || ticket.problem_type || 'Untitled Ticket'}</p>
-                        <p className="text-xs text-zinc-500 mt-0.5 uppercase tracking-wider">{ticket.status}</p>
+                        <p className="font-semibold text-sm text-zinc-900 truncate">{displayValue(ticket.subject || ticket.problem_type, 'Untitled Ticket')}</p>
+                        <p className="text-xs text-zinc-500 mt-0.5 uppercase tracking-wider">{displayValue(ticket.status, "New")}</p>
                       </div>
-                      <Badge variant="outline" className="text-zinc-500 font-mono text-xs shadow-none shrink-0 border-zinc-200">#{ticket.number}</Badge>
+                      <Badge variant="outline" className="text-zinc-500 font-mono text-xs shadow-none shrink-0 border-zinc-200">#{displayValue(ticket.number, ticket.id)}</Badge>
                     </div>
                   ))}
                   {stats.recentTickets.length === 0 && (
@@ -209,8 +240,8 @@ export function DashboardView() {
                     <div key={task.id} onClick={() => navigate(`/tasks`)} className="p-3 hover:bg-zinc-50 cursor-pointer transition-colors flex items-start gap-3">
                       <div className="w-4 h-4 rounded-full border border-zinc-300 mt-0.5 shrink-0" />
                       <div>
-                        <p className="font-semibold text-sm text-zinc-900 leading-tight">{task.title}</p>
-                        {task.dueDate && <p className="text-xs text-red-500 font-medium mt-1">Due: {task.dueDate}</p>}
+                        <p className="font-semibold text-sm text-zinc-900 leading-tight">{displayValue(task.title, "Untitled task")}</p>
+                        {task.dueDate && <p className="text-xs text-red-500 font-medium mt-1">Due: {displayValue(task.dueDate)}</p>}
                       </div>
                     </div>
                   ))}
@@ -234,10 +265,10 @@ export function DashboardView() {
                   {stats.yourTurnSms.map(sms => (
                     <div key={sms.id} onClick={() => navigate(`/messages?tab=your_turn&convId=${sms.id || sms.conversationId}`)} className="p-3 hover:bg-zinc-50 cursor-pointer transition-colors flex flex-col">
                       <div className="flex justify-between items-center mb-1">
-                         <p className="font-semibold text-sm text-zinc-900 truncate">{sms.customerName || sms.phone}</p>
+                         <p className="font-semibold text-sm text-zinc-900 truncate">{displayValue(sms.customerName || sms.phone, "Customer")}</p>
                          <span className="text-xs text-zinc-400 bg-zinc-100 px-1.5 py-0.5 rounded">Action Req</span>
                       </div>
-                      <p className="text-xs text-zinc-500 line-clamp-1">{sms.lastMessage}</p>
+                      <p className="text-xs text-zinc-500 line-clamp-1">{displayValue(sms.lastMessage)}</p>
                     </div>
                   ))}
                   {stats.yourTurnSms.length === 0 && (
@@ -260,9 +291,9 @@ export function DashboardView() {
                   {stats.urgentSms.map(sms => (
                     <div key={sms.id} onClick={() => navigate(`/messages?tab=urgent&convId=${sms.id || sms.conversationId}`)} className="p-3 hover:bg-red-50/50 cursor-pointer transition-colors flex flex-col">
                       <div className="flex justify-between items-center mb-1">
-                         <p className="font-semibold text-sm text-zinc-900 truncate text-red-900">{sms.customerName || sms.phone}</p>
+                         <p className="font-semibold text-sm text-zinc-900 truncate text-red-900">{displayValue(sms.customerName || sms.phone, "Customer")}</p>
                       </div>
-                      <p className="text-xs text-red-600 line-clamp-1">{sms.lastMessage}</p>
+                      <p className="text-xs text-red-600 line-clamp-1">{displayValue(sms.lastMessage)}</p>
                     </div>
                   ))}
                   {stats.urgentSms.length === 0 && (
@@ -285,9 +316,9 @@ export function DashboardView() {
                   {stats.recentSms.map(sms => (
                     <div key={sms.id} onClick={() => navigate(`/messages?convId=${sms.id || sms.conversationId}`)} className="p-3 hover:bg-zinc-50 cursor-pointer transition-colors flex flex-col">
                       <div className="flex justify-between items-center mb-1">
-                         <p className="font-semibold text-sm text-zinc-900 truncate">{sms.customerName || sms.phone}</p>
+                         <p className="font-semibold text-sm text-zinc-900 truncate">{displayValue(sms.customerName || sms.phone, "Customer")}</p>
                       </div>
-                      <p className="text-xs text-zinc-500 line-clamp-1">{sms.lastMessage}</p>
+                      <p className="text-xs text-zinc-500 line-clamp-1">{displayValue(sms.lastMessage)}</p>
                     </div>
                   ))}
                   {stats.recentSms.length === 0 && (
@@ -310,11 +341,11 @@ export function DashboardView() {
                   {stats.recentParts.map(part => (
                     <div key={part.id} onClick={() => navigate(`/inventory`)} className="p-3 hover:bg-zinc-50 cursor-pointer transition-colors flex justify-between items-center">
                        <div className="truncate pr-2">
-                         <p className="font-semibold text-sm text-zinc-900">{part.partName}</p>
-                         <p className="text-xs text-zinc-500 mt-0.5 truncate">{part.supplier}</p>
+                         <p className="font-semibold text-sm text-zinc-900">{displayValue(part.partName, "Part order")}</p>
+                         <p className="text-xs text-zinc-500 mt-0.5 truncate">{displayValue(part.supplier)}</p>
                        </div>
                        <Badge variant="secondary" className="text-xs whitespace-nowrap bg-zinc-100 text-zinc-600 hover:bg-zinc-200 shadow-none border-0">
-                         {part.status}
+                         {displayValue(part.status, "ordered")}
                        </Badge>
                     </div>
                   ))}
@@ -336,4 +367,3 @@ export function DashboardView() {
     </div>
   );
 }
-
