@@ -1,190 +1,157 @@
-import React from "react";
 import { ArrowLeft } from "lucide-react";
 
 interface PrivacyPolicyViewProps {
   onClose: () => void;
+  closeLabel?: string;
 }
 
-export function PrivacyPolicyView({ onClose }: PrivacyPolicyViewProps) {
+const sectionClass = "rounded-2xl border border-zinc-200 bg-white p-5 shadow-sm";
+const headingClass = "text-lg font-black text-zinc-950";
+const paragraphClass = "mt-3 text-sm leading-7 text-zinc-700";
+const listClass = "mt-3 list-disc space-y-2 pl-5 text-sm leading-6 text-zinc-700";
+
+export function PrivacyPolicyView({ onClose, closeLabel = "Go Back to App" }: PrivacyPolicyViewProps) {
   return (
-    <div className="bg-white min-h-screen text-zinc-950 overflow-y-auto w-full relative">
-      <div style={{
-        maxWidth: "1000px",
-        margin: "0 auto",
-        padding: "40px 20px",
-        fontFamily: "Arial,Helvetica,sans-serif",
-        lineHeight: "1.7",
-        color: "#333"
-      }}>
+    <div className="min-h-screen w-full bg-zinc-50 text-zinc-950">
+      <div className="mx-auto max-w-3xl px-5 py-6 sm:px-8 sm:py-10">
         <button
+          type="button"
           onClick={onClose}
-          className="mb-8 flex items-center gap-2 text-sm font-semibold text-zinc-600 hover:text-zinc-950 transition-colors bg-zinc-100 px-4 py-2 rounded-xl border border-zinc-200 hover:bg-zinc-200 cursor-pointer"
+          className="mb-6 inline-flex min-h-10 items-center gap-2 rounded-xl border border-zinc-200 bg-white px-4 py-2 text-sm font-bold text-zinc-700 shadow-sm transition-colors hover:bg-zinc-100 hover:text-zinc-950"
         >
-          <ArrowLeft className="w-4 h-4" /> Go Back to App
+          <ArrowLeft className="h-4 w-4" />
+          {closeLabel}
         </button>
 
-        <h1 style={{ color: "#1f2937", margin: "0 0 10px 0" }}>RepairSync Privacy Policy</h1>
+        <header className="mb-6 rounded-3xl bg-zinc-950 p-6 text-white shadow-xl shadow-zinc-200">
+          <p className="text-[11px] font-black uppercase tracking-[0.2em] text-emerald-300">
+            RepairSync Legal
+          </p>
+          <h1 className="mt-3 text-3xl font-black tracking-tight">
+            Privacy Policy
+          </h1>
+          <p className="mt-3 text-sm leading-6 text-zinc-300">
+            Effective date: 4 June 2026. RepairSync is a repair business
+            management app operated for repair shops, technicians, and business
+            teams.
+          </p>
+        </header>
 
-        <p><strong>Effective Date:</strong> 4 June 2026</p>
+        <div className="space-y-4">
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Who We Are</h2>
+            <p className={paragraphClass}>
+              RepairSync provides repair business management software for
+              customer management, repair tickets, messaging, invoicing,
+              quoting, inventory management, technician workflows, automation,
+              and related repair shop operations.
+            </p>
+            <dl className="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <div className="rounded-xl bg-zinc-50 p-3">
+                <dt className="font-bold text-zinc-500">App name</dt>
+                <dd className="mt-1 font-semibold text-zinc-950">RepairSync</dd>
+              </div>
+              <div className="rounded-xl bg-zinc-50 p-3">
+                <dt className="font-bold text-zinc-500">Website</dt>
+                <dd className="mt-1 font-semibold text-zinc-950">
+                  repairsync.qld.one
+                </dd>
+              </div>
+              <div className="rounded-xl bg-zinc-50 p-3 sm:col-span-2">
+                <dt className="font-bold text-zinc-500">Support contact</dt>
+                <dd className="mt-1 font-semibold text-zinc-950">
+                  repairs.phonemedic.au@gmail.com
+                </dd>
+              </div>
+            </dl>
+          </section>
 
-        <p>
-          RepairSync ("RepairSync", "we", "our", or "us") provides repair business management software that assists repair businesses with customer management, ticket tracking, messaging, invoicing, quoting, inventory management, workflow automation, and related business operations.
-        </p>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Information We Collect</h2>
+            <p className={paragraphClass}>
+              We collect information needed to create accounts, run repair
+              workflows, and provide business tools inside RepairSync.
+            </p>
+            <ul className={listClass}>
+              <li>Business name, address, phone number, support email, and settings.</li>
+              <li>User name, email address, role, permissions, and security settings.</li>
+              <li>Customer details entered by the business, including names, phone numbers, email addresses, repair history, device details, tickets, and communication records.</li>
+              <li>Repair shop records such as tickets, quotes, invoices, inventory records, notes, workflow settings, and automation settings.</li>
+            </ul>
+          </section>
 
-        <p>
-          This Privacy Policy explains how we collect, use, store, and protect information when you use RepairSync.
-        </p>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>How We Use Information</h2>
+            <ul className={listClass}>
+              <li>Provide, maintain, and secure the RepairSync platform.</li>
+              <li>Authenticate users and manage account access.</li>
+              <li>Store and display customer, ticket, quote, invoice, and inventory records.</li>
+              <li>Send customer communications initiated by the repair business.</li>
+              <li>Provide reporting, automation, workflow, and integration features.</li>
+              <li>Respond to support requests and troubleshoot platform issues.</li>
+            </ul>
+          </section>
 
-        <h2>1. Information We Collect</h2>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Customer Communications</h2>
+            <p className={paragraphClass}>
+              RepairSync can help businesses send SMS messages and other
+              customer communications. The repair business is responsible for
+              ensuring it has the permissions and consents required by law
+              before sending messages to customers.
+            </p>
+          </section>
 
-        <p>
-          RepairSync collects information that users voluntarily provide when creating and using a RepairSync account.
-        </p>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Sharing and Service Providers</h2>
+            <p className={paragraphClass}>
+              RepairSync does not sell personal information. Information may be
+              shared with providers that help operate the app, including cloud
+              hosting, authentication, messaging, backups, payments,
+              infrastructure, and integrations enabled by the business.
+            </p>
+          </section>
 
-        <h3>Business Information</h3>
-        <ul>
-          <li>Business name</li>
-          <li>Business address</li>
-          <li>Business phone number</li>
-          <li>Support email address</li>
-          <li>Timezone and localisation settings</li>
-        </ul>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Security and Retention</h2>
+            <p className={paragraphClass}>
+              We use reasonable technical and organisational safeguards to
+              protect information. No electronic system can be guaranteed to be
+              completely secure. We retain information as needed to provide the
+              service, comply with legal obligations, resolve disputes, enforce
+              agreements, and maintain business records.
+            </p>
+          </section>
 
-        <h3>User Account Information</h3>
-        <ul>
-          <li>Name</li>
-          <li>Email address</li>
-          <li>User role and permissions</li>
-          <li>Authentication and security settings</li>
-        </ul>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Access, Correction, and Deletion</h2>
+            <p className={paragraphClass}>
+              Users may request access to, correction of, or deletion of
+              personal information held in RepairSync, subject to applicable law.
+              Some records may be retained where required for legal, accounting,
+              taxation, security, or compliance reasons.
+            </p>
+          </section>
 
-        <h3>Customer Information Entered by Businesses</h3>
-        <ul>
-          <li>Customer names</li>
-          <li>Phone numbers</li>
-          <li>Email addresses</li>
-          <li>Addresses (if entered)</li>
-          <li>Repair history</li>
-          <li>Ticket information</li>
-          <li>Device information entered by the business</li>
-          <li>Communication records</li>
-        </ul>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Children and International Processing</h2>
+            <p className={paragraphClass}>
+              RepairSync is intended for business use and is not directed to
+              children under 13. Information may be stored and processed in
+              Australia and other jurisdictions where our service providers
+              operate.
+            </p>
+          </section>
 
-        <h3>Business Records</h3>
-        <ul>
-          <li>Tickets and repair jobs</li>
-          <li>Messages and message templates</li>
-          <li>Quotes</li>
-          <li>Invoices</li>
-          <li>Inventory records</li>
-          <li>Workflow and automation settings</li>
-          <li>Internal notes entered by users</li>
-        </ul>
-
-        <h2>2. How We Use Information</h2>
-
-        <p>We use information to:</p>
-
-        <ul>
-          <li>Provide and maintain the RepairSync platform</li>
-          <li>Authenticate users and manage access permissions</li>
-          <li>Store customer and repair records</li>
-          <li>Manage tickets, repairs, invoices, and quotes</li>
-          <li>Send messages initiated by the business</li>
-          <li>Provide reporting and workflow functionality</li>
-          <li>Support integrations enabled by the business</li>
-          <li>Respond to support requests</li>
-          <li>Maintain platform security</li>
-        </ul>
-
-        <h2>3. Customer Communications</h2>
-
-        <p>
-          RepairSync allows businesses to send SMS messages and other communications to their customers.
-        </p>
-
-        <p>
-          Businesses are responsible for ensuring they have obtained any permissions, consents, or authorisations required by law before sending communications through RepairSync.
-        </p>
-
-        <h2>4. Information Sharing</h2>
-
-        <p>
-          RepairSync does not sell personal information.
-        </p>
-
-        <p>
-          Information may be shared with service providers that help us operate the platform, including cloud hosting, authentication, messaging, backup, and infrastructure providers.
-        </p>
-
-        <p>
-          Where a business enables third-party integrations, information may be shared with those services as required to provide the requested functionality.
-        </p>
-
-        <h2>5. Data Security</h2>
-
-        <p>
-          We take reasonable steps to protect information stored within RepairSync using industry-standard security measures designed to help prevent unauthorised access, disclosure, alteration, or destruction of data.
-        </p>
-
-        <p>
-          While we work to protect information, no method of electronic transmission or storage can be guaranteed to be completely secure.
-        </p>
-
-        <h2>6. Data Retention</h2>
-
-        <p>
-          Information is retained for as long as necessary to provide RepairSync services, comply with legal obligations, resolve disputes, enforce agreements, and maintain business records.
-        </p>
-
-        <h2>7. Account Deletion</h2>
-
-        <p>
-          Users may request deletion of their RepairSync account and associated data.
-        </p>
-
-        <p>
-          Where permitted by law, data will be deleted or anonymised. Certain records may be retained where required for legal, security, accounting, taxation, or compliance purposes.
-        </p>
-
-        <h2>8. User Rights</h2>
-
-        <p>
-          Subject to applicable law, users may request access to, correction of, or deletion of personal information held within RepairSync.
-        </p>
-
-        <h2>9. Children's Privacy</h2>
-
-        <p>
-          RepairSync is intended for business use and is not directed toward children under the age of 13.
-        </p>
-
-        <h2>10. International Data Processing</h2>
-
-        <p>
-          RepairSync may store and process information in Australia and other jurisdictions where our service providers operate.
-        </p>
-
-        <h2>11. Changes to This Privacy Policy</h2>
-
-        <p>
-          We may update this Privacy Policy from time to time. Updated versions will be posted within the application or on our website. Continued use of RepairSync after changes are published constitutes acceptance of the updated policy.
-        </p>
-
-        <h2>12. Contact Us</h2>
-
-        <p>
-          For privacy-related enquiries, requests, or complaints, please contact:
-        </p>
-
-        <p>
-          <strong>RepairSync Support</strong><br />
-          Email: support@repairsync.com.au
-        </p>
-
-        <p style={{ marginTop: "30px", color: "#666", fontSize: "14px" }}>
-          By using RepairSync, you acknowledge that you have read and understood this Privacy Policy.
-        </p>
+          <section className={sectionClass}>
+            <h2 className={headingClass}>Contact</h2>
+            <p className={paragraphClass}>
+              For privacy enquiries, access requests, correction requests,
+              deletion requests, or complaints, contact RepairSync support at
+              <span className="font-semibold text-zinc-950"> repairs.phonemedic.au@gmail.com</span>.
+            </p>
+          </section>
+        </div>
       </div>
     </div>
   );

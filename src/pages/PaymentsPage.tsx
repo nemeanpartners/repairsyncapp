@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import {
-  Apple,
+  ArrowLeft,
   CheckCircle2,
   CreditCard,
   ExternalLink,
@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   X,
 } from "lucide-react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { toast } from "sonner";
 import { apiUrl } from "../lib/apiRuntime";
 import { SubscriptionInterval, SubscriptionPlan } from "../lib/billing";
@@ -113,6 +113,7 @@ const PLAN_COPY: Record<
 
 export function PaymentsPage() {
   const { user, profile } = useAuth();
+  const navigate = useNavigate();
   const [searchParams, setSearchParams] = useSearchParams();
   const [interval, setInterval] = useState<SubscriptionInterval>(
     searchParams.get("interval") === "monthly" ? "monthly" : "yearly",
@@ -321,10 +322,18 @@ export function PaymentsPage() {
     });
 
   return (
-    <div className="min-h-screen bg-[#09090b] text-zinc-100 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))] md:px-10">
+    <div className="min-h-screen bg-[#09090b] text-zinc-100 px-6 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(4rem+env(safe-area-inset-bottom))] md:px-10">
       <div className="mx-auto max-w-6xl">
         <div className="flex flex-wrap items-center justify-between gap-4 mb-10">
           <div>
+            <button
+              type="button"
+              onClick={() => navigate("/")}
+              className="mb-6 inline-flex min-h-10 items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-950 px-4 py-2 text-sm font-bold text-zinc-300 transition-colors hover:bg-zinc-900 hover:text-white"
+            >
+              <ArrowLeft className="h-4 w-4" />
+              Back to Overview
+            </button>
             <p className="text-[11px] font-black tracking-[0.2em] uppercase text-emerald-400 mb-2">
               RepairSync Payments
             </p>
@@ -369,11 +378,11 @@ export function PaymentsPage() {
               <button
                 type="button"
                 onClick={handleGoogleLogin}
-                className="min-h-11 w-full rounded-lg border border-zinc-300 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-800 shadow-[0_1px_2px_rgba(0,0,0,0.12)] transition-colors hover:bg-zinc-50 flex items-center justify-center gap-3"
+                className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#dadce0] bg-white px-4 text-[15px] font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.18)] transition-colors hover:bg-[#f8fafd]"
               >
                 <svg
                   aria-hidden="true"
-                  className="h-4 w-4"
+                  className="h-[18px] w-[18px]"
                   viewBox="0 0 18 18"
                 >
                   <path
@@ -398,9 +407,16 @@ export function PaymentsPage() {
               <button
                 type="button"
                 onClick={handleAppleLogin}
-                className="min-h-11 w-full rounded-lg border border-black bg-black px-4 py-2.5 text-sm font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.2)] transition-colors hover:bg-zinc-900 flex items-center justify-center gap-2.5"
+                className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-black bg-black px-4 text-[17px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.24)] transition-colors hover:bg-zinc-900"
               >
-                <Apple className="h-4 w-4 fill-white stroke-white" aria-hidden="true" />
+                <svg
+                  aria-hidden="true"
+                  className="h-5 w-5"
+                  viewBox="0 0 24 24"
+                  fill="currentColor"
+                >
+                  <path d="M16.37 1.51c0 1.06-.39 2.04-1.17 2.94-.94 1.07-2.08 1.69-3.32 1.59-.15-1.02.37-2.1 1.09-2.94.79-.93 2.17-1.64 3.4-1.59ZM20.39 17.08c-.53 1.21-.78 1.75-1.46 2.82-.95 1.45-2.29 3.26-3.95 3.27-1.48.01-1.86-.96-3.87-.95-2.01.01-2.43.97-3.91.95-1.66-.01-2.93-1.65-3.88-3.1-2.65-4.05-2.93-8.8-1.29-11.33 1.16-1.8 3-2.85 4.73-2.85 1.76 0 2.87.97 4.33.97 1.42 0 2.28-.97 4.33-.97 1.55 0 3.19.84 4.35 2.3-3.82 2.09-3.2 7.55.62 8.89Z" />
+                </svg>
                 Continue with Apple
               </button>
             </div>
@@ -516,24 +532,35 @@ export function PaymentsPage() {
 
       {legalModal ? (
         <div
-          className="fixed inset-0 z-50 bg-black/80 p-3 sm:p-6 backdrop-blur-sm"
+          className="fixed inset-0 z-50 bg-black/80 p-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] sm:p-6 backdrop-blur-sm"
           role="dialog"
           aria-modal="true"
         >
           <div className="relative mx-auto flex h-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-zinc-800 bg-white shadow-2xl">
-            <button
-              type="button"
-              onClick={() => setLegalModal(null)}
-              className="absolute right-3 top-3 z-10 rounded-full bg-zinc-900 p-2 text-white shadow-lg transition-colors hover:bg-zinc-700"
-              aria-label="Close"
-            >
-              <X className="h-5 w-5" />
-            </button>
-            <div className="min-h-0 flex-1 overflow-y-auto">
+            <div className="flex min-h-14 shrink-0 items-center justify-between border-b border-zinc-200 bg-white px-4 py-2">
+              <span className="text-sm font-black uppercase tracking-[0.16em] text-zinc-500">
+                {legalModal === "privacy" ? "Privacy Policy" : "Terms of Service"}
+              </span>
+              <button
+                type="button"
+                onClick={() => setLegalModal(null)}
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-950 text-white shadow-lg transition-colors hover:bg-zinc-700"
+                aria-label="Close"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto bg-white">
               {legalModal === "privacy" ? (
-                <PrivacyPolicyView onClose={() => setLegalModal(null)} />
+                <PrivacyPolicyView
+                  onClose={() => setLegalModal(null)}
+                  closeLabel="Back to Subscription Options"
+                />
               ) : (
-                <TermsOfServiceView onClose={() => setLegalModal(null)} />
+                <TermsOfServiceView
+                  onClose={() => setLegalModal(null)}
+                  closeLabel="Back to Subscription Options"
+                />
               )}
             </div>
           </div>
