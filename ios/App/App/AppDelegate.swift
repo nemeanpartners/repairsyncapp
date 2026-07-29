@@ -535,7 +535,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 let textLength = payload["textLength"] as? Int ?? 0
                 let rootChildren = payload["rootChildren"] as? Int ?? 0
                 let isHostedRepairSync = href.hasPrefix(self.hostedAppBaseURL)
-                let looksBlank = textLength < 8 && rootChildren == 0
+                let isStillLoadingShell = text.contains("Loading RepairSync") || text.contains("Updating RepairSync")
+                let looksBlank = (textLength < 8 && rootChildren == 0) || isStillLoadingShell
 
                 if !isHostedRepairSync || looksBlank {
                     NSLog("RepairSync iOS detected blank WebView. href=\(href), textLength=\(textLength), rootChildren=\(rootChildren)")

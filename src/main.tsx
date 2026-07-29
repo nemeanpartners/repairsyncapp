@@ -24,6 +24,7 @@ try {
       </AuthProvider>
     </StrictMode>,
   );
+  window.__repairSyncAppMounted?.();
 } catch (error) {
   console.error("RepairSync failed to start", error);
   const root = document.getElementById('root');
