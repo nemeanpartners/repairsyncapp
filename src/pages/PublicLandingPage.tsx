@@ -50,9 +50,9 @@ import {
 } from "lucide-react";
 
 interface PublicLandingPageProps {
-  onLogin: () => void;
-  onAppleLogin?: () => void;
-  onGuestLogin?: () => void;
+  onLogin: () => void | Promise<void>;
+  onAppleLogin?: () => void | Promise<void>;
+  onGuestLogin?: () => void | Promise<void>;
 }
 
 export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: PublicLandingPageProps) {
@@ -73,6 +73,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
   const [showAuthPassword, setShowAuthPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
+  const [socialAuthLoading, setSocialAuthLoading] = useState<"google" | "apple" | null>(null);
 
   const [activePlanInterval, setActivePlanInterval] = useState<"monthly" | "yearly">("yearly");
   const [liveTicketStatus, setLiveTicketStatus] = useState<"Diagnostic" | "Approval" | "Parts" | "QC" | "Ready">("Diagnostic");
@@ -1466,8 +1467,12 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
               {/* Close Button */}
               <button
                 type="button"
-                onClick={() => setIsAuthModalOpen(false)}
+                onClick={() => {
+                  setSocialAuthLoading(null);
+                  setIsAuthModalOpen(false);
+                }}
                 className="absolute top-4 right-4 p-2 text-zinc-500 hover:text-zinc-300 rounded-full hover:bg-zinc-900 transition-colors z-10 cursor-pointer"
+                aria-label="Close sign-in choices"
               >
                 <X className="w-5 h-5" />
               </button>
@@ -1498,11 +1503,16 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                 <div className="space-y-3 mb-6">
                   <button
                     type="button"
-                    onClick={() => {
-                      setIsAuthModalOpen(false);
-                      onLogin();
+                    disabled={socialAuthLoading !== null}
+                    onClick={async () => {
+                      setSocialAuthLoading("google");
+                      try {
+                        await onLogin();
+                      } finally {
+                        setSocialAuthLoading(null);
+                      }
                     }}
-                    className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#dadce0] bg-white px-4 text-[15px] font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.18)] transition-colors hover:bg-[#f8fafd] cursor-pointer"
+                    className="flex h-11 w-full items-center justify-center gap-3 rounded-lg border border-[#dadce0] bg-white px-4 text-[15px] font-semibold text-[#3c4043] shadow-[0_1px_2px_rgba(60,64,67,0.18)] transition-colors hover:bg-[#f8fafd] disabled:cursor-wait disabled:opacity-70 cursor-pointer"
                   >
                     <svg
                       aria-hidden="true"
@@ -1526,16 +1536,21 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                         d="M9 3.58c1.32 0 2.5.45 3.44 1.35l2.59-2.58A8.65 8.65 0 0 0 9 0 9 9 0 0 0 .96 4.95l3.01 2.33C4.68 5.16 6.66 3.58 9 3.58z"
                       />
                     </svg>
-                    Continue with Google
+                    {socialAuthLoading === "google" ? "Opening Google..." : "Continue with Google"}
                   </button>
                   {onAppleLogin ? (
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsAuthModalOpen(false);
-                        onAppleLogin();
+                      disabled={socialAuthLoading !== null}
+                      onClick={async () => {
+                        setSocialAuthLoading("apple");
+                        try {
+                          await onAppleLogin();
+                        } finally {
+                          setSocialAuthLoading(null);
+                        }
                       }}
-                      className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-black bg-black px-4 text-[17px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.24)] transition-colors hover:bg-zinc-900 cursor-pointer"
+                      className="flex h-11 w-full items-center justify-center gap-2.5 rounded-lg border border-black bg-black px-4 text-[17px] font-semibold text-white shadow-[0_1px_2px_rgba(0,0,0,0.24)] transition-colors hover:bg-zinc-900 disabled:cursor-wait disabled:opacity-70 cursor-pointer"
                     >
                       <svg
                         aria-hidden="true"
@@ -1545,7 +1560,16 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                       >
                         <path d="M16.37 1.51c0 1.06-.39 2.04-1.17 2.94-.94 1.07-2.08 1.69-3.32 1.59-.15-1.02.37-2.1 1.09-2.94.79-.93 2.17-1.64 3.4-1.59ZM20.39 17.08c-.53 1.21-.78 1.75-1.46 2.82-.95 1.45-2.29 3.26-3.95 3.27-1.48.01-1.86-.96-3.87-.95-2.01.01-2.43.97-3.91.95-1.66-.01-2.93-1.65-3.88-3.1-2.65-4.05-2.93-8.8-1.29-11.33 1.16-1.8 3-2.85 4.73-2.85 1.76 0 2.87.97 4.33.97 1.42 0 2.28-.97 4.33-.97 1.55 0 3.19.84 4.35 2.3-3.82 2.09-3.2 7.55.62 8.89Z" />
                       </svg>
-                      Continue with Apple
+                      {socialAuthLoading === "apple" ? "Opening Apple..." : "Continue with Apple"}
+                    </button>
+                  ) : null}
+                  {socialAuthLoading ? (
+                    <button
+                      type="button"
+                      onClick={() => setSocialAuthLoading(null)}
+                      className="flex h-9 w-full items-center justify-center rounded-lg border border-zinc-800 bg-zinc-950 text-xs font-bold text-zinc-400 transition-colors hover:bg-zinc-900 hover:text-zinc-200"
+                    >
+                      Back to sign-in choices
                     </button>
                   ) : null}
                   <div className="relative flex py-1 items-center">

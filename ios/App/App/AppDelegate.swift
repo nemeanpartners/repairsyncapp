@@ -63,25 +63,14 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
 
     func applicationWillEnterForeground(_ application: UIApplication) {
         // Called as part of the transition from the background to the active state; here you can undo many of the changes made on entering the background.
-        showLoadingOverlay(message: "Restoring RepairSync...")
     }
 
     func applicationDidBecomeActive(_ application: UIApplication) {
-        guard webView != nil else {
-            return
-        }
         if !hasCompletedInitialActivation {
             hasCompletedInitialActivation = true
             return
         }
-        if googleSignInInProgress {
-            NSLog("RepairSync iOS: skipping WebView refresh while Google Sign-In is in progress")
-            return
-        }
-        DispatchQueue.main.async {
-            self.validateHostedAppRendered(after: 0.35)
-            self.validateHostedAppRendered(after: 2.0)
-        }
+        hideLoadingOverlay(after: 0.1)
     }
 
     func applicationWillTerminate(_ application: UIApplication) {

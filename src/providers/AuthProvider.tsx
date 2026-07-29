@@ -6,6 +6,8 @@ import { doc, getDoc, serverTimestamp, setDoc } from "firebase/firestore";
 import { buildDefaultBillingProfile, UserBillingProfile } from "../lib/billing";
 import { companyRootDoc, setActiveCompanyId } from "../lib/companyFirestore";
 
+const PROFILE_CACHE_KEY_PREFIX = "repairsync.userProfile.";
+
 interface AuthContextType {
   user: User | null;
   profile: UserBillingProfile | null;
@@ -21,20 +23,41 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profile, setProfile] = useState<UserBillingProfile | null>(null);
   const [loading, setLoading] = useState(true);
 
+  const getFallbackCompanyId = (currentUser: User) => currentUser.uid;
+
+  const getCachedProfile = (uid: string): UserBillingProfile | null => {
+    try {
+      const cached = window.localStorage.getItem(`${PROFILE_CACHE_KEY_PREFIX}${uid}`);
+      return cached ? JSON.parse(cached) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const cacheProfile = (uid: string, nextProfile: UserBillingProfile) => {
+    try {
+      window.localStorage.setItem(`${PROFILE_CACHE_KEY_PREFIX}${uid}`, JSON.stringify(nextProfile));
+    } catch {
+      // localStorage can be unavailable in private or embedded browser contexts.
+    }
+  };
+
   const syncUserProfile = async (currentUser: User) => {
     if (currentUser.isAnonymous) {
-      setActiveCompanyId("demo");
-      setProfile({
+      const demoProfile = {
         ...buildDefaultBillingProfile(currentUser.metadata.creationTime),
         companyId: "demo",
         companyName: "RepairSync Demo",
-      });
+      };
+      setActiveCompanyId("demo");
+      setProfile(demoProfile);
+      cacheProfile(currentUser.uid, demoProfile);
       return;
     }
 
     const userRef = doc(db, "users", currentUser.uid);
     const snapshot = await getDoc(userRef);
-    const fallbackCompanyId = `company_${currentUser.uid}`;
+    const fallbackCompanyId = getFallbackCompanyId(currentUser);
 
     if (!snapshot.exists()) {
       const defaultProfile = buildDefaultBillingProfile(currentUser.metadata.creationTime);
@@ -69,6 +92,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         updatedAt: serverTimestamp(),
       }, { merge: true });
       setProfile(profile);
+      cacheProfile(currentUser.uid, profile);
       return;
     }
 
@@ -130,6 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       console.warn("Failed to ensure company document", error);
     });
     setProfile(normalizedProfile);
+    cacheProfile(currentUser.uid, normalizedProfile);
   };
 
   useEffect(() => {
@@ -142,10 +167,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
 
       unsubscribe = onAuthStateChanged(auth, async (user) => {
-        setUser(user);
-      
         // Update axios default headers globally
         if (user) {
+          const immediateCompanyId = user.isAnonymous ? "demo" : getFallbackCompanyId(user);
+          const cachedProfile = getCachedProfile(user.uid);
+
+          setActiveCompanyId(cachedProfile?.companyId || immediateCompanyId);
+          setUser(user);
+          setProfile(cachedProfile);
+          setLoading(false);
+
           axios.defaults.headers.common['x-user-id'] = user.uid;
           if (user.email) {
             axios.defaults.headers.common["x-user-email"] = user.email;
@@ -157,20 +188,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           } else {
             delete axios.defaults.headers.common['x-is-guest'];
           }
-          try {
-            await syncUserProfile(user);
-          } catch (error) {
+          void syncUserProfile(user).catch((error) => {
             console.error("Failed to sync user billing profile", error);
-            setProfile(null);
-          }
+          });
         } else {
+          setUser(null);
+          setProfile(null);
           delete axios.defaults.headers.common['x-user-id'];
           delete axios.defaults.headers.common["x-user-email"];
           delete axios.defaults.headers.common['x-is-guest'];
-          setProfile(null);
+          setLoading(false);
         }
-      
-        setLoading(false);
       });
 
     });
