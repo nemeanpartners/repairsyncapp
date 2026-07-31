@@ -25,12 +25,16 @@ export function getServerDb() {
 
   if (!_authPromise) {
     const auth = getAuth(app);
-    const serverAuthEmail =
-      process.env.REPAIRSYNC_SERVER_AUTH_EMAIL || ["server_admin", `phone${"medic"}.au`].join("@");
-    const serverAuthPassword = process.env.REPAIRSYNC_SERVER_AUTH_PASSWORD || "ServerSecure123!";
-    _authPromise = signInWithEmailAndPassword(auth, serverAuthEmail, serverAuthPassword)
-      .then(() => console.log("[Firebase Server Auth] Logged in as server_admin"))
-      .catch(e => console.error("[Firebase Server Auth] Failed to login:", e.message));
+    const serverAuthEmail = process.env.REPAIRSYNC_SERVER_AUTH_EMAIL;
+    const serverAuthPassword = process.env.REPAIRSYNC_SERVER_AUTH_PASSWORD;
+    if (serverAuthEmail && serverAuthPassword) {
+      _authPromise = signInWithEmailAndPassword(auth, serverAuthEmail, serverAuthPassword)
+        .then(() => console.log("[Firebase Server Auth] Logged in as configured server user"))
+        .catch(e => console.error("[Firebase Server Auth] Failed to login:", e.message));
+    } else {
+      _authPromise = Promise.resolve(null);
+      console.warn("[Firebase Server Auth] Disabled because REPAIRSYNC_SERVER_AUTH_EMAIL/PASSWORD are not configured.");
+    }
   }
 
   try {

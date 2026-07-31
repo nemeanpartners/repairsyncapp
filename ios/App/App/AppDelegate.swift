@@ -512,7 +512,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 href: locationHref,
                 textLength: text.length,
                 rootChildren: rootChildren,
-                readyState: document.readyState
+                readyState: document.readyState,
+                isStillLoadingShell: text.indexOf('Loading RepairSync') !== -1 || text.indexOf('Updating RepairSync') !== -1
               });
             })();
             """
@@ -534,8 +535,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 let href = payload["href"] as? String ?? ""
                 let textLength = payload["textLength"] as? Int ?? 0
                 let rootChildren = payload["rootChildren"] as? Int ?? 0
+                let isStillLoadingShell = payload["isStillLoadingShell"] as? Bool ?? false
                 let isHostedRepairSync = href.hasPrefix(self.hostedAppBaseURL)
-                let isStillLoadingShell = text.contains("Loading RepairSync") || text.contains("Updating RepairSync")
                 let looksBlank = (textLength < 8 && rootChildren == 0) || isStillLoadingShell
 
                 if !isHostedRepairSync || looksBlank {
