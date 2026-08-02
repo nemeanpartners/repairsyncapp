@@ -78,7 +78,7 @@ const PLAN_COPY: Record<
   starter: {
     name: "Starter",
     monthly: "$49",
-    yearly: "$39",
+    yearly: "$39.08",
     features: [
       "1 workshop",
       "Core CRM + tickets",
@@ -89,7 +89,7 @@ const PLAN_COPY: Record<
   pro: {
     name: "Professional",
     monthly: "$99",
-    yearly: "$79",
+    yearly: "$79.08",
     recommended: true,
     features: [
       "Everything in Starter",

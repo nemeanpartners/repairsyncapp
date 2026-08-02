@@ -212,8 +212,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
         webView.evaluateJavaScript(nativeIAPShim(), completionHandler: nil)
         didInstallGoogleSignInBridge = true
         applyPendingNavigationIfNeeded()
-        validateHostedAppRendered(after: 2.0)
-        validateHostedAppRendered(after: 5.0)
+        validateHostedAppRendered(after: 4.0)
+        validateHostedAppRendered(after: 8.0)
         hideLoadingOverlay(after: 12.0)
         NSLog("RepairSync Google Sign-In: native bridge installed")
     }
@@ -513,7 +513,7 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 textLength: text.length,
                 rootChildren: rootChildren,
                 readyState: document.readyState,
-                isStillLoadingShell: text.indexOf('Loading RepairSync') !== -1 || text.indexOf('Updating RepairSync') !== -1
+                hasLoadingText: text.indexOf('Loading RepairSync') !== -1 || text.indexOf('Updating RepairSync') !== -1 || text.indexOf('Restoring RepairSync') !== -1
               });
             })();
             """
@@ -535,11 +535,18 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
                 let href = payload["href"] as? String ?? ""
                 let textLength = payload["textLength"] as? Int ?? 0
                 let rootChildren = payload["rootChildren"] as? Int ?? 0
-                let isStillLoadingShell = payload["isStillLoadingShell"] as? Bool ?? false
+                let hasLoadingText = payload["hasLoadingText"] as? Bool ?? false
                 let isHostedRepairSync = href.hasPrefix(self.hostedAppBaseURL)
-                let looksBlank = (textLength < 8 && rootChildren == 0) || isStillLoadingShell
+                let isInitialBlankNavigation = href == "about:blank" && rootChildren == 0
+                let looksBlank = textLength < 8 && rootChildren == 0
 
-                if !isHostedRepairSync || looksBlank {
+                if isInitialBlankNavigation {
+                    NSLog("RepairSync iOS waiting for initial WebView navigation before recovery.")
+                    self.validateHostedAppRendered(after: 4.0)
+                } else if isHostedRepairSync && hasLoadingText && rootChildren > 0 {
+                    NSLog("RepairSync iOS found hosted loading state; waiting without forced reload.")
+                    self.validateHostedAppRendered(after: 5.0)
+                } else if !isHostedRepairSync || looksBlank {
                     NSLog("RepairSync iOS detected blank WebView. href=\(href), textLength=\(textLength), rootChildren=\(rootChildren)")
                     self.forceLoadHostedApp(reason: looksBlank ? "blank-dom" : "wrong-url")
                 } else {

@@ -1114,7 +1114,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
             Flat Pricing. Massive Scale.
           </h2>
           <p className="text-sm text-zinc-400 max-w-xl mx-auto">
-            Choose a plan optimized for your technician volume. Cancel anytime. Save 20% by committing to an annual billing cycle.
+            Choose a plan optimized for your technician volume. Cancel anytime. Save with annual billing.
           </p>
 
           {/* Pricing Toggle Selection */}
@@ -1132,7 +1132,7 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
               >
                 Yearly Billing
               </button>
-              <span className="absolute -top-3.5 -right-16 text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-950 px-1.5 py-0.5 rounded-full font-black animate-pulse">SAVE 20%</span>
+              <span className="absolute -top-3.5 -right-16 text-[8px] bg-emerald-500/10 text-emerald-400 border border-emerald-950 px-1.5 py-0.5 rounded-full font-black animate-pulse">SAVE YEARLY</span>
             </div>
           </div>
         </div>
@@ -1145,9 +1145,12 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
             <div>
               <p className="text-xs uppercase font-mono font-black text-zinc-500">Starter Bench</p>
               <div className="flex items-baseline mt-4">
-                <span className="text-4xl font-mono font-black text-white">${activePlanInterval === "yearly" ? "39" : "49"}</span>
+                <span className="text-4xl font-mono font-black text-white">${activePlanInterval === "yearly" ? "39.08" : "49"}</span>
                 <span className="text-xs text-zinc-500 font-bold ml-1">/ Month</span>
               </div>
+              {activePlanInterval === "yearly" ? (
+                <p className="text-[11px] text-zinc-500 mt-1 font-bold">$469 billed yearly</p>
+              ) : null}
               <p className="text-xs text-zinc-400 mt-4 leading-relaxed">
                 Perfect for smaller single-location technician clinics keeping workflow benchmarks clean.
               </p>
@@ -1187,9 +1190,12 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
             <div>
               <p className="text-xs uppercase font-mono font-black text-purple-400">Professional Team</p>
               <div className="flex items-baseline mt-4">
-                <span className="text-4xl font-mono font-black text-white">${activePlanInterval === "yearly" ? "79" : "99"}</span>
+                <span className="text-4xl font-mono font-black text-white">${activePlanInterval === "yearly" ? "79.08" : "99"}</span>
                 <span className="text-xs text-purple-500 font-bold ml-1">/ Month</span>
               </div>
+              {activePlanInterval === "yearly" ? (
+                <p className="text-[11px] text-purple-500 mt-1 font-bold">$949 billed yearly</p>
+              ) : null}
               <p className="text-xs text-zinc-400 mt-4 leading-relaxed">
                 Optimized for fast-paced repair networks and active multiple store locations running SLAs.
               </p>
