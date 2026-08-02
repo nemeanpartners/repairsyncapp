@@ -50,10 +50,10 @@ const APPLE_IAP_PRODUCT_IDS: Record<
   starter: {
     monthly:
       import.meta.env.VITE_APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID ||
-      "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly",
+      "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly.s",
     yearly:
       import.meta.env.VITE_APPLE_IAP_STARTER_YEARLY_PRODUCT_ID ||
-      "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly",
+      "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly.s",
   },
   pro: {
     monthly:

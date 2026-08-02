@@ -45,12 +45,12 @@ const APPLE_IAP_PRODUCT_MAP: Record<
   { plan: Exclude<BillingPlan, "enterprise">; interval: BillingInterval }
 > = {
   [process.env.APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID ||
-  "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly"]: {
+  "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly.s"]: {
     plan: "starter",
     interval: "monthly",
   },
   [process.env.APPLE_IAP_STARTER_YEARLY_PRODUCT_ID ||
-  "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly"]: {
+  "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly.s"]: {
     plan: "starter",
     interval: "yearly",
   },

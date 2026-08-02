@@ -26,8 +26,8 @@ class AppDelegate: UIResponder, UIApplicationDelegate, WKScriptMessageHandler, U
     private let hostedAppBaseURL = "https://repairsync.qld.one"
     private var pendingAppNavigationURL: URL?
     private let appleIAPProductIDs: Set<String> = [
-        "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly",
-        "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly",
+        "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly.s",
+        "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly.s",
         "com.nemeanpartnersptyltd.repairsyncapp.pro.monthly",
         "com.nemeanpartnersptyltd.repairsyncapp.pro.yearly"
     ]
