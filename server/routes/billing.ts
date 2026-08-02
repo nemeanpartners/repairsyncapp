@@ -44,19 +44,23 @@ const APPLE_IAP_PRODUCT_MAP: Record<
   string,
   { plan: Exclude<BillingPlan, "enterprise">; interval: BillingInterval }
 > = {
-  [process.env.APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID || "com.repairsyncios.sms.starter.monthly"]: {
+  [process.env.APPLE_IAP_STARTER_MONTHLY_PRODUCT_ID ||
+  "com.nemeanpartnersptyltd.repairsyncapp.starter.monthly"]: {
     plan: "starter",
     interval: "monthly",
   },
-  [process.env.APPLE_IAP_STARTER_YEARLY_PRODUCT_ID || "com.repairsyncios.sms.starter.yearly"]: {
+  [process.env.APPLE_IAP_STARTER_YEARLY_PRODUCT_ID ||
+  "com.nemeanpartnersptyltd.repairsyncapp.starter.yearly"]: {
     plan: "starter",
     interval: "yearly",
   },
-  [process.env.APPLE_IAP_PRO_MONTHLY_PRODUCT_ID || "com.repairsyncios.sms.pro.monthly"]: {
+  [process.env.APPLE_IAP_PRO_MONTHLY_PRODUCT_ID ||
+  "com.nemeanpartnersptyltd.repairsyncapp.pro.monthly"]: {
     plan: "pro",
     interval: "monthly",
   },
-  [process.env.APPLE_IAP_PRO_YEARLY_PRODUCT_ID || "com.repairsyncios.sms.pro.yearly"]: {
+  [process.env.APPLE_IAP_PRO_YEARLY_PRODUCT_ID ||
+  "com.nemeanpartnersptyltd.repairsyncapp.pro.yearly"]: {
     plan: "pro",
     interval: "yearly",
   },

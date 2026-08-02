@@ -149,7 +149,7 @@ export function PaymentsPage() {
           toast.error(
             error?.response?.data?.error ||
               error?.message ||
-              "Unable to restore Apple subscription.",
+                "Unable to restore Apple subscription.",
           );
         },
       );
@@ -189,6 +189,31 @@ export function PaymentsPage() {
 
     toast.success(restored ? "Apple subscription restored." : "Apple subscription activated.");
     window.setTimeout(() => window.location.reload(), 800);
+  };
+
+  const handleRestoreApplePurchase = async () => {
+    if (!user || user.isAnonymous) {
+      toast.error("Sign in before restoring your Apple subscription.");
+      return;
+    }
+
+    const iap = window.RepairSyncIAP;
+    if (!canUseAppleIAP || !iap?.restore) {
+      toast.error("Apple subscription restore is only available in the iPhone app.");
+      return;
+    }
+
+    setLoadingPlan("pro");
+    try {
+      const started = iap.restore();
+      if (!started) {
+        throw new Error("Apple restore could not be started.");
+      }
+      toast.info("Checking your Apple subscription purchases...");
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to restore Apple subscription.");
+      setLoadingPlan(null);
+    }
   };
 
   const handleGoogleLogin = async () => {
@@ -345,6 +370,16 @@ export function PaymentsPage() {
               platforms use Stripe checkout and return you to RepairSync after
               activation.
             </p>
+            {canUseAppleIAP && user && !user.isAnonymous ? (
+              <button
+                type="button"
+                onClick={handleRestoreApplePurchase}
+                disabled={loadingPlan !== null || !!profile?.subscriptionActive}
+                className="mt-4 inline-flex min-h-10 items-center justify-center rounded-xl border border-zinc-700 bg-zinc-950 px-4 py-2 text-sm font-bold text-zinc-200 transition-colors hover:bg-zinc-900 disabled:opacity-60"
+              >
+                Restore Apple Purchase
+              </button>
+            ) : null}
           </div>
         </div>
 
@@ -456,9 +491,19 @@ export function PaymentsPage() {
                       <p className="text-sm text-zinc-400 mt-1">
                         {interval === "yearly" ? copy.yearly : copy.monthly}
                         {plan !== "enterprise" ? (
-                          <span className="text-zinc-500"> / month</span>
+                          <span className="text-zinc-500"> AUD / month</span>
                         ) : null}
                       </p>
+                      {plan === "starter" && interval === "yearly" ? (
+                        <p className="mt-1 text-xs font-semibold text-zinc-500">
+                          AUD $469 billed yearly
+                        </p>
+                      ) : null}
+                      {plan === "pro" && interval === "yearly" ? (
+                        <p className="mt-1 text-xs font-semibold text-emerald-300/80">
+                          AUD $949 billed yearly
+                        </p>
+                      ) : null}
                     </div>
                     {copy.recommended ? (
                       <span className="text-xs uppercase font-semibold tracking-[0.2em] text-emerald-300">
