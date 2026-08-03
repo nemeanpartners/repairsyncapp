@@ -1,4 +1,8 @@
 import { doc, getDoc } from "firebase/firestore";
+import fs from "fs";
+import path from "path";
+import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+import { getFirestore } from "firebase-admin/firestore";
 import { sanitizeCompanyId } from "../companyFirestore.js";
 
 export type CompanyIntegrationConfig = {
@@ -61,14 +65,46 @@ function isProfessionalPlan(data: Record<string, unknown> | undefined) {
   return Boolean(data?.subscriptionActive) && (data?.subscriptionPlan === "pro" || data?.subscriptionPlan === "enterprise");
 }
 
+function getFirebaseConfig() {
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  return JSON.parse(fs.readFileSync(configPath, "utf8"));
+}
+
+function getAdminDb() {
+  const config = getFirebaseConfig();
+  const app = getApps().length
+    ? getApps()[0]
+    : initializeApp({
+        projectId: config.projectId,
+        credential: applicationDefault(),
+      });
+  return getFirestore(app, config.firestoreDatabaseId || undefined);
+}
+
+async function readDocData(db: any, pathSegments: string[]) {
+  if (typeof db?.collection === "function") {
+    const [first, id, ...rest] = pathSegments;
+    let ref: any = db.collection(first).doc(id);
+    for (let i = 0; i < rest.length; i += 2) {
+      ref = ref.collection(rest[i]).doc(rest[i + 1]);
+    }
+    const snap = await ref.get().catch(() => null);
+    return snap?.exists ? snap.data() : undefined;
+  }
+
+  const snap = await getDoc(doc(db, ...pathSegments)).catch(() => null);
+  return snap?.exists() ? snap.data() : undefined;
+}
+
 export async function companyHasProfessionalAccess(db: any, companyId: string, userId?: string | null) {
   const safeCompanyId = sanitizeCompanyId(companyId);
-  const companySnap = await getDoc(doc(db, "companies", safeCompanyId)).catch(() => null);
-  if (companySnap?.exists() && isProfessionalPlan(companySnap.data())) return true;
+  const readDb = typeof db?.collection === "function" ? db : getAdminDb();
+  const companyData = await readDocData(readDb, ["companies", safeCompanyId]);
+  if (isProfessionalPlan(companyData)) return true;
 
   if (userId) {
-    const userSnap = await getDoc(doc(db, "users", String(userId))).catch(() => null);
-    if (userSnap?.exists() && isProfessionalPlan(userSnap.data())) return true;
+    const userData = await readDocData(readDb, ["users", String(userId)]);
+    if (isProfessionalPlan(userData)) return true;
   }
 
   return false;
@@ -76,8 +112,8 @@ export async function companyHasProfessionalAccess(db: any, companyId: string, u
 
 export async function getCompanyIntegrationConfig(db: any, companyId: string | null | undefined, userId?: string | null): Promise<CompanyIntegrationConfig> {
   const safeCompanyId = sanitizeCompanyId(companyId);
-  const settingsSnap = await getDoc(doc(db, "companies", safeCompanyId, "settings", "integrations")).catch(() => null);
-  const settings = settingsSnap?.exists() ? settingsSnap.data() : {};
+  const readDb = typeof db?.collection === "function" ? db : getAdminDb();
+  const settings = await readDocData(readDb, ["companies", safeCompanyId, "settings", "integrations"]) || {};
   const hasCompanyCredentials = Boolean(
     asString(settings.mobileMessageUsername) ||
       asString(settings.mobileMessagePassword) ||

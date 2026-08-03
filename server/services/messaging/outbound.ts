@@ -122,12 +122,12 @@ export async function sendMobileMessage(
   const usesManagedCompanyAccount = Boolean(integrationConfig?.managedMessagingEnabled && integrationConfig?.managedMessagingAccountId);
   const username = (
     usesManagedCompanyAccount
-      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME
+      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME || ''
       : integrationConfig?.mobileMessageUsername || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME || ''
   ).trim();
   const password = (
     usesManagedCompanyAccount
-      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD
+      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD || ''
       : integrationConfig?.mobileMessagePassword || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD || ''
   ).trim();
   const senderId = (

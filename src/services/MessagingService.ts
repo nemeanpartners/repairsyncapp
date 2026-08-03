@@ -1,6 +1,7 @@
-import { db } from "../firebase";
+import { auth, db } from "../firebase";
 import { collection, addDoc, serverTimestamp, doc, updateDoc } from "firebase/firestore";
 import axios from "axios";
+import { getActiveCompanyId } from "../lib/companyFirestore";
 
 export interface SendMessageOptions {
   to: string;
@@ -36,7 +37,14 @@ export class MessagingService {
         isInternal: options.isInternal || false,
       };
 
-      const response = await axios.post("/api/mobilemessage/send", payload);
+      const currentUser = auth.currentUser;
+      const response = await axios.post("/api/mobilemessage/send", payload, {
+        headers: {
+          "x-company-id": getActiveCompanyId(),
+          ...(currentUser?.uid ? { "x-user-id": currentUser.uid } : {}),
+          ...(currentUser?.email ? { "x-user-email": currentUser.email } : {}),
+        },
+      });
 
       // The backend returns the newly created message ID and transport used
       return {
@@ -44,9 +52,15 @@ export class MessagingService {
         messageId: response.data.messageId,
         transport: response.data.transport, // "rcs" or "sms"
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("MessagingService Error:", error);
-      throw new Error("Failed to send message via MessagingService");
+      const message =
+        error.response?.data?.error ||
+        error.response?.data?.mobileMessageError ||
+        error.response?.data?.repairShoprError ||
+        error.message ||
+        "Failed to send message via MessagingService";
+      throw new Error(message);
     }
   }
 

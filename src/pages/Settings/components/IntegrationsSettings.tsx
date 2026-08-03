@@ -368,6 +368,11 @@ export function IntegrationsSettings() {
   const isProfessional =
     Boolean(profile?.subscriptionActive) &&
     (profile?.subscriptionPlan === "pro" || profile?.subscriptionPlan === "enterprise");
+  const managedMessagingAccountReady = Boolean(
+    settings?.integrations?.managedMessagingEnabled &&
+      settings?.integrations?.managedMessagingAccountId
+  );
+  const managedMaxotelAccountReady = Boolean(settings?.integrations?.managedMaxotelEnabled);
 
   const requireProfessional = () => {
     toast.info("Professional subscription required", {
@@ -376,19 +381,22 @@ export function IntegrationsSettings() {
     navigate("/payments?plan=pro&interval=monthly");
   };
 
-  const mobileMessageAvailable = true;
-  const maxotelAvailable = true;
-  const smsRelayAvailable = true;
+  const mobileMessageAvailable = capabilities.managedMobileMessage;
+  const maxotelAvailable = capabilities.managedMaxotel;
+  const smsRelayAvailable = capabilities.managedMobileMessage || capabilities.managedRepairShopr;
   const mobileMessageConnected = Boolean(
-    settings?.integrations?.managedMessagingEnabled &&
-      settings?.integrations?.managedMessagingAccountId &&
-      settings?.integrations?.mobileMessageEnabled
+    managedMessagingAccountReady &&
+      settings?.integrations?.mobileMessageEnabled &&
+      mobileMessageAvailable
   );
-  const maxotelConnected = Boolean(settings?.integrations?.managedMaxotelEnabled || settings?.integrations?.maxotelEnabled);
+  const maxotelConnected = Boolean(
+    (managedMaxotelAccountReady || settings?.integrations?.maxotelEnabled) &&
+      maxotelAvailable
+  );
   const smsRelayConnected = Boolean(
-    settings?.integrations?.managedMessagingEnabled &&
-      settings?.integrations?.managedMessagingAccountId &&
-      settings?.integrations?.smsRelayEnabled
+    managedMessagingAccountReady &&
+      settings?.integrations?.smsRelayEnabled &&
+      smsRelayAvailable
   );
 
   const getActionStatus = (enabled: boolean, available: boolean) => {
@@ -476,7 +484,14 @@ export function IntegrationsSettings() {
 
   useEffect(() => {
     if (!isProfessional || !profile?.companyId || !settings?.integrations) return;
-    if (mobileMessageConnected && smsRelayConnected && maxotelConnected) return;
+    if (
+      managedMessagingAccountReady &&
+      settings.integrations.mobileMessageEnabled &&
+      settings.integrations.smsRelayEnabled &&
+      managedMaxotelAccountReady
+    ) {
+      return;
+    }
 
     let cancelled = false;
     const provisionProfessionalIntegrations = async () => {
@@ -501,9 +516,8 @@ export function IntegrationsSettings() {
     isProfessional,
     profile?.companyId,
     settings?.integrations,
-    mobileMessageConnected,
-    smsRelayConnected,
-    maxotelConnected,
+    managedMessagingAccountReady,
+    managedMaxotelAccountReady,
     updateSettings,
   ]);
 
