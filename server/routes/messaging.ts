@@ -1,9 +1,13 @@
 import { Router } from 'express';
-import { getFirestore, collection, addDoc, doc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { getDb } from '../utils/firebase.js';
 import { normalizePhone } from '../utils/phone.js';
-import { updateConversationMetadata } from '../services/messaging.js';
-import { companyCollection, companyDoc } from '../companyFirestore.js';
+import { sendMobileMessage, updateConversationMetadata } from '../services/messaging.js';
+import { companyCollectionForCompany, companyDocForCompany, sanitizeCompanyId } from '../companyFirestore.js';
+import {
+  getCompanyIntegrationConfig,
+  ProfessionalSubscriptionRequiredError,
+} from '../services/companyIntegrations.js';
 
 export const messagingRouter = Router();
 
@@ -18,7 +22,11 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
       const db = getDb();
       const { to, from, text, customerId, customerName, isInternal, skipDbWrite } = req.body;
       if (!to || !text) return res.status(400).json({ error: "Missing 'to' or 'text' parameters" });
+      if (!db) return res.status(500).json({ error: "Firestore not configured" });
 
+      const companyId = sanitizeCompanyId(String(req.headers['x-company-id'] || ''));
+      const userId = String(req.headers['x-user-id'] || '');
+      const integrationConfig = await getCompanyIntegrationConfig(db, companyId, userId);
       const transport = process.env.RCS_PROVIDER_API_KEY ? 'rcs' : 'sms';
       const actualFrom = process.env.RCS_PROVIDER_API_KEY ? "RepairSync Business" : (from || "system");
       
@@ -27,7 +35,7 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
 
       if (!skipDbWrite) {
         // Save to Firestore optimistically
-        const messageDocRef = await addDoc(companyCollection(db, 'messages'), {
+        const messageDocRef = await addDoc(companyCollectionForCompany(db, companyId, 'messages'), {
           from: actualFrom,
           to: normalizedTo,
           text,
@@ -43,17 +51,14 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
         messageDocRefId = messageDocRef.id;
 
         // Update Conversation Tracking
-        await updateConversationMetadata(customerId, normalizedTo, customerName, null, 'outbound', text);
+        await updateConversationMetadata(customerId, normalizedTo, customerName, null, 'outbound', text, messageDocRefId, companyId);
       }
 
-      // (Simulate / Route to actual provider here based on `transport` flag)
       if (transport === 'rcs') {
         // e.g. await sendGoogleRBM(normalizedTo, text);
         console.log(`[Messaging] Sent RCS to ${normalizedTo}`);
       } else {
-        // Fallback to internal/Twilio SMS integration
-        // e.g. await sendTwilioSms(normalizedTo, text);
-        console.log(`[Messaging] Sent SMS to ${normalizedTo}`);
+        await sendMobileMessage(normalizedTo, text, null, skipDbWrite ? req.body.messageId : messageDocRefId, customerId, integrationConfig);
       }
 
       res.status(200).json({ 
@@ -62,6 +67,9 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
         transport 
       });
     } catch (error: any) {
+      if (error instanceof ProfessionalSubscriptionRequiredError || error.status === 402) {
+        return res.status(402).json({ error: error.message, upgradeRequired: true, requiredPlan: 'pro' });
+      }
       console.error("[Messaging Send Error]", error);
       res.status(500).json({ error: error.message });
     }
@@ -86,7 +94,8 @@ messagingRouter.post('/api/webhooks/rcs/delivery', async (req, res) => {
 
       // Verify Webhook Signature here (e.g. process.env.RCS_PROVIDER_WEBHOOK_SECRET)
 
-      const docRef = companyDoc(db, 'messages', messageId);
+      const companyId = sanitizeCompanyId(String(req.headers['x-company-id'] || ''));
+      const docRef = companyDocForCompany(db, companyId, 'messages', messageId);
       await updateDoc(docRef, { status, error: error || null });
 
       res.status(200).send("OK");

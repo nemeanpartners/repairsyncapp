@@ -58,6 +58,15 @@ export const IntegrationsSettingsSchema = z.object({
   twilioAccountSid: z.string().optional(),
   twilioAuthToken: z.string().optional(),
   twilioPhoneNumber: z.string().optional(),
+  mobileMessageEnabled: z.boolean().default(false),
+  mobileMessageUsername: z.string().optional(),
+  mobileMessagePassword: z.string().optional(),
+  mobileMessageSenderId: z.string().optional(),
+  repairShoprSubdomain: z.string().optional(),
+  repairShoprApiKey: z.string().optional(),
+  maxotelEnabled: z.boolean().default(false),
+  maxotelApiKey: z.string().optional(),
+  maxotelPhoneNumber: z.string().optional(),
 });
 export type IntegrationsSettings = z.infer<typeof IntegrationsSettingsSchema>;
 

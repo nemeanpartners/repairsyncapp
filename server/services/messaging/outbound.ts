@@ -3,7 +3,8 @@ import { collection, query, where, getDocs, getDoc, doc, addDoc, serverTimestamp
 import { getDb } from '../../utils/firebase.js';
 import { normalizePhone } from '../../utils/phone.js';
 import { updateConversationMetadata } from './metadata.js';
-import { companyCollection, companyDoc } from '../../companyFirestore.js';
+import { companyCollection, companyCollectionForCompany, companyDoc, companyDocForCompany } from '../../companyFirestore.js';
+import type { CompanyIntegrationConfig } from '../companyIntegrations.js';
 
 async function shortenUrl(url: string): Promise<string> {
   try {
@@ -38,7 +39,14 @@ export async function shortenUrlsInMessage(message: string): Promise<string> {
   return shortenedMessage;
 }
 
-export async function sendMobileMessage(to: string, message: string, ticket_id: any, custom_ref: any, customer_id?: any) {
+export async function sendMobileMessage(
+  to: string,
+  message: string,
+  ticket_id: any,
+  custom_ref: any,
+  customer_id?: any,
+  integrationConfig?: Partial<CompanyIntegrationConfig>,
+) {
   try {
     message = await shortenUrlsInMessage(message);
   } catch (err) {
@@ -46,13 +54,22 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
   }
 
   const db = getDb();
+  const companyId = integrationConfig?.companyId;
+  const col = (collectionName: string, ...pathSegments: string[]) =>
+    companyId
+      ? companyCollectionForCompany(db, companyId, collectionName, ...pathSegments)
+      : companyCollection(db, collectionName, ...pathSegments);
+  const docRefFor = (collectionName: string, ...pathSegments: string[]) =>
+    companyId
+      ? companyDocForCompany(db, companyId, collectionName, ...pathSegments)
+      : companyDoc(db, collectionName, ...pathSegments);
   let customerId = customer_id || null;
   let customerName = null;
   let ticketNumber = null;
 
   if (db && customerId) {
      try {
-       const cDoc = await getDoc(companyDoc(db, 'crm_customers', String(customerId)));
+       const cDoc = await getDoc(docRefFor('crm_customers', String(customerId)));
        if (cDoc.exists()) {
           const c = cDoc.data();
           customerName = c.fullname || `${c.firstname || ''} ${c.lastname || ''}`.trim();
@@ -63,14 +80,14 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
 
   if (db && ticket_id) {
     try {
-      const ticketSnap = await getDocs(query(companyCollection(db, 'crm_tickets'), where('id', '==', String(ticket_id))));
+      const ticketSnap = await getDocs(query(col('crm_tickets'), where('id', '==', String(ticket_id))));
       if (!ticketSnap.empty) {
         const tData = ticketSnap.docs[0].data();
         customerId = tData.customer_id;
         customerName = tData.customer_name;
         ticketNumber = tData.number;
       } else {
-        const tDoc = await getDoc(companyDoc(db, 'crm_tickets', String(ticket_id)));
+        const tDoc = await getDoc(docRefFor('crm_tickets', String(ticket_id)));
         if (tDoc.exists()) {
           const tData = tDoc.data();
           customerId = tData.customer_id;
@@ -86,7 +103,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
   if (db && !customerId) {
     try {
       const normalizedTo = normalizePhone(to);
-      const custSnap = await getDocs(companyCollection(db, 'crm_customers'));
+      const custSnap = await getDocs(col('crm_customers'));
       custSnap.forEach(d => {
         const c = d.data();
         const cPhone = normalizePhone(c.phone || '');
@@ -102,11 +119,11 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
     }
   }
 
-  const username = (process.env.MOBILE_MESSAGE_USERNAME || '').trim();
-  const password = (process.env.MOBILE_MESSAGE_PASSWORD || '').trim();
-  const senderId = (process.env.MOBILE_MESSAGE_SENDER_ID || '').trim();
-  const subdomain = (process.env.REPAIRSHOPR_SUBDOMAIN || '').trim();
-  const apiKey = (process.env.REPAIRSHOPR_API_KEY || '').trim();
+  const username = (integrationConfig?.mobileMessageUsername || process.env.MOBILE_MESSAGE_USERNAME || '').trim();
+  const password = (integrationConfig?.mobileMessagePassword || process.env.MOBILE_MESSAGE_PASSWORD || '').trim();
+  const senderId = (integrationConfig?.mobileMessageSenderId || process.env.MOBILE_MESSAGE_SENDER_ID || '').trim();
+  const subdomain = (integrationConfig?.repairShoprSubdomain || process.env.REPAIRSHOPR_SUBDOMAIN || '').trim();
+  const apiKey = (integrationConfig?.repairShoprApiKey || process.env.REPAIRSHOPR_API_KEY || '').trim();
 
   let mobileMessageError = null;
   let repairShoprError = null;
@@ -166,7 +183,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
             try {
               let msgEventId = undefined;
               if (!custom_ref) {
-                const newDocRef = await addDoc(companyCollection(db, 'messages'), {
+                const newDocRef = await addDoc(col('messages'), {
                   from: 'system',
                   to: fmt,
                   text: message,
@@ -182,7 +199,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
                 });
                 msgEventId = newDocRef.id;
               }
-              await updateConversationMetadata(customerId, fmt, customerName, ticketNumber, 'outbound', message, msgEventId);
+              await updateConversationMetadata(customerId, fmt, customerName, ticketNumber, 'outbound', message, msgEventId, companyId);
             } catch (fsErr) {
               console.error('[SMS Service] Firestore persistence error:', fsErr);
             }
@@ -243,7 +260,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
               try {
                 let msgEventId = undefined;
                 if (!custom_ref) {
-                  const newDocRef = await addDoc(companyCollection(db, 'messages'), {
+                const newDocRef = await addDoc(col('messages'), {
                     from: 'system',
                     to: normalizePhone(to),
                     text: message,
@@ -258,7 +275,7 @@ export async function sendMobileMessage(to: string, message: string, ticket_id: 
                   });
                   msgEventId = newDocRef.id;
                 }
-                await updateConversationMetadata(customerId, to, customerName, ticketNumber, 'outbound', message, msgEventId);
+                await updateConversationMetadata(customerId, to, customerName, ticketNumber, 'outbound', message, msgEventId, companyId);
               } catch (fsErr) {
                 console.error('[SMS Service] Firestore persistence error:', fsErr);
               }

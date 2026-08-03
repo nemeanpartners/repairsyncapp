@@ -5,6 +5,10 @@ import { collection, query, where, getDocs, doc, addDoc, serverTimestamp, runTra
 import { getDb } from '../utils/firebase.js';
 import { companyCollection, companyDoc } from '../companyFirestore.js';
 import { normalizePhone } from './mobilemessage.js'; // Assuming we export it
+import {
+  getCompanyIntegrationConfig,
+  ProfessionalSubscriptionRequiredError,
+} from '../services/companyIntegrations.js';
 
 export const maxotelRouter = Router();
 
@@ -177,15 +181,23 @@ maxotelRouter.get('/api/maxotel/calls', async (req, res) => {
     const db = getDb();
     try {
       const { startTime, endTime } = req.query;
-      const apiKey = process.env.MAXOTEL_API_KEY;
+      const integrationConfig = await getCompanyIntegrationConfig(
+        db,
+        String(req.headers['x-company-id'] || ''),
+        String(req.headers['x-user-id'] || ''),
+      );
+      const apiKey = integrationConfig.maxotelApiKey || process.env.MAXOTEL_API_KEY;
       if (!apiKey) {
-        return res.status(400).json({ error: 'MAXOTEL_API_KEY is not configured' });
+        return res.status(400).json({ error: 'Connect Maxotel in Settings > Integrations before fetching call logs.' });
       }
       
       const maxotelUrl = `https://myapi.maxo.com.au/calls/list/?key=${apiKey}&startTime=${encodeURIComponent(startTime as string)}&endTime=${encodeURIComponent(endTime as string)}&outputFormat=json`;
       const response = await axios.get(maxotelUrl);
       res.json(response.data);
     } catch (err: any) {
+      if (err instanceof ProfessionalSubscriptionRequiredError || err.status === 402) {
+        return res.status(402).json({ error: err.message, upgradeRequired: true, requiredPlan: 'pro' });
+      }
       console.error('Error fetching maxotel calls:', err.response?.data || err.message);
       res.status(500).json({ error: 'Failed to fetch maxotel calls' });
     }

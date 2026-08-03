@@ -11,6 +11,7 @@ import { format } from 'date-fns';
 import { Loader2, Plus, Phone, PhoneIncoming, PhoneOutgoing, PhoneMissed, Search, Trash2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { companyCollection, companyDoc } from "../lib/companyFirestore";
+import { useSettings } from '../providers/SettingsProvider';
 
 interface CallLogModalProps {
   isOpen: boolean;
@@ -22,6 +23,7 @@ interface CallLogModalProps {
 }
 
 export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps) {
+  const { settings } = useSettings();
   const [logs, setLogs] = useState<any[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -58,6 +60,7 @@ export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps
   const fetchMaxotelLogs = async () => {
     setIsFetchingMaxotel(true);
     try {
+      const maxotelPhone = settings?.integrations?.maxotelPhoneNumber?.replace(/\D/g, '') || '';
       // Fetch last 7 days
       const end = new Date();
       const start = new Date();
@@ -66,24 +69,31 @@ export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps
       const startTime = format(start, 'yyyy-MM-dd 00:00:00');
       const endTime = format(end, 'yyyy-MM-dd 23:59:59');
 
-      const res = await fetch(`/api/maxotel/calls?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`);
+      const res = await fetch(`/api/maxotel/calls?startTime=${encodeURIComponent(startTime)}&endTime=${encodeURIComponent(endTime)}`, {
+        headers: {
+          'x-user-id': auth.currentUser?.uid || '',
+          'x-company-id': settings ? window.localStorage.getItem('repairsync.activeCompanyId') || '' : '',
+        },
+      });
       const data = await res.json();
       
-      if (data && data.status === 'error') {
+      if (data && data.error) {
+        toast.error(data.error);
+      } else if (data && data.status === 'error') {
         toast.error("Maxotel API Error: " + data.message);
       } else if (data && Array.isArray(data)) {
          // Assuming root array
-         setMaxotelLogs(data.filter((c: any) => c.caller_id === '0733681772' || c.destination === '0733681772' || c.src === '0733681772' || c.dst === '0733681772'));
+         setMaxotelLogs(maxotelPhone ? data.filter((c: any) => JSON.stringify(c).replace(/\D/g, '').includes(maxotelPhone)) : data);
       } else if (data && data.calls && Array.isArray(data.calls)) {
-         setMaxotelLogs(data.calls.filter((c: any) => JSON.stringify(c).includes('0733681772')));
+         setMaxotelLogs(maxotelPhone ? data.calls.filter((c: any) => JSON.stringify(c).replace(/\D/g, '').includes(maxotelPhone)) : data.calls);
       } else if (data && Array.isArray(data.data)) {
-        setMaxotelLogs(data.data.filter((c: any) => JSON.stringify(c).includes('0733681772')));
+        setMaxotelLogs(maxotelPhone ? data.data.filter((c: any) => JSON.stringify(c).replace(/\D/g, '').includes(maxotelPhone)) : data.data);
       } else if (Array.isArray(data)) {
-        setMaxotelLogs(data.filter((c: any) => JSON.stringify(c).includes('0733681772')));
+        setMaxotelLogs(maxotelPhone ? data.filter((c: any) => JSON.stringify(c).replace(/\D/g, '').includes(maxotelPhone)) : data);
       } else if (typeof data === 'object') {
         // Find any array property and filter
         const logs = Object.values(data).find(Array.isArray) || [];
-        setMaxotelLogs(logs.filter((c: any) => JSON.stringify(c).includes('0733681772')));
+        setMaxotelLogs(maxotelPhone ? logs.filter((c: any) => JSON.stringify(c).replace(/\D/g, '').includes(maxotelPhone)) : logs);
       }
       toast.success("Fetched Maxotel calls");
     } catch (error) {
@@ -221,7 +231,7 @@ export function CallLogModal({ isOpen, onClose, initialData }: CallLogModalProps
               className="ml-auto"
             >
               {isFetchingMaxotel && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
-              Fetch Maxotel (0733681772)
+              Fetch Maxotel{settings?.integrations?.maxotelPhoneNumber ? ` (${settings.integrations.maxotelPhoneNumber})` : ''}
             </Button>
           </div>
         </DialogHeader>

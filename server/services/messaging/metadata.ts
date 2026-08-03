@@ -1,7 +1,7 @@
 import { serverTimestamp, runTransaction, doc } from 'firebase/firestore';
 import { getDb } from '../../utils/firebase.js';
 import { normalizePhone } from '../../utils/phone.js';
-import { companyCollection, companyDoc } from '../../companyFirestore.js';
+import { companyDoc, companyDocForCompany } from '../../companyFirestore.js';
 
 export async function updateConversationMetadata(
   customerId: any,
@@ -10,7 +10,8 @@ export async function updateConversationMetadata(
   ticketNumber: any,
   direction: 'inbound' | 'outbound',
   text: string,
-  messageEventId?: string
+  messageEventId?: string,
+  companyId?: string | null
 ) {
   const db = getDb();
   if (!db) return;
@@ -18,7 +19,9 @@ export async function updateConversationMetadata(
     const threadId = normalizePhone(phone);
     if (!threadId) return;
 
-    const convRef = companyDoc(db, 'conversations', threadId);
+    const convRef = companyId
+      ? companyDocForCompany(db, companyId, 'conversations', threadId)
+      : companyDoc(db, 'conversations', threadId);
     await runTransaction(db, async (transaction) => {
       const snap = await transaction.get(convRef);
       const currentLabels = snap.exists() ? (snap.data().labels || []) : [];

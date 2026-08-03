@@ -43,7 +43,16 @@ const DEFAULT_SETTINGS: AppSettings = {
     require2FA: false
   },
   integrations: {
-    rcsEnabled: false
+    rcsEnabled: false,
+    mobileMessageEnabled: false,
+    mobileMessageUsername: '',
+    mobileMessagePassword: '',
+    mobileMessageSenderId: '',
+    repairShoprSubdomain: '',
+    repairShoprApiKey: '',
+    maxotelEnabled: false,
+    maxotelApiKey: '',
+    maxotelPhoneNumber: '',
   },
   devices: {
     brands: [

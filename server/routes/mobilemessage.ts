@@ -10,6 +10,10 @@ import {
 } from '../services/messaging.js';
 import { doc, getDocs, collection, query, where, limit, updateDoc } from 'firebase/firestore';
 import { companyCollection, companyDoc } from '../companyFirestore.js';
+import {
+  getCompanyIntegrationConfig,
+  ProfessionalSubscriptionRequiredError,
+} from '../services/companyIntegrations.js';
 
 export const mobileMessageRouter = Router();
 
@@ -45,9 +49,20 @@ mobileMessageRouter.post('/api/mobilemessage/send', async (req, res) => {
   }
 
   try {
-    const result = await sendMobileMessage(to, message, ticket_id, custom_ref, customer_id);
+    const db = getDb();
+    const integrationConfig = db
+      ? await getCompanyIntegrationConfig(
+          db,
+          String(req.headers['x-company-id'] || ''),
+          String(req.headers['x-user-id'] || ''),
+        )
+      : undefined;
+    const result = await sendMobileMessage(to, message, ticket_id, custom_ref, customer_id, integrationConfig);
     res.json(result);
   } catch (error: any) {
+    if (error instanceof ProfessionalSubscriptionRequiredError || error.status === 402) {
+      return res.status(402).json({ error: error.message, upgradeRequired: true, requiredPlan: 'pro' });
+    }
     try {
       const parsed = JSON.parse(error.message);
       res.status(500).json(parsed);
@@ -59,9 +74,20 @@ mobileMessageRouter.post('/api/mobilemessage/send', async (req, res) => {
 
 mobileMessageRouter.get('/api/mobilemessage/balance', async (req, res) => {
   try {
-    const balance = await getMobileMessageBalance();
+    const db = getDb();
+    const integrationConfig = db
+      ? await getCompanyIntegrationConfig(
+          db,
+          String(req.headers['x-company-id'] || ''),
+          String(req.headers['x-user-id'] || ''),
+        )
+      : undefined;
+    const balance = await getMobileMessageBalance(integrationConfig);
     res.json(balance);
   } catch (error: any) {
+    if (error instanceof ProfessionalSubscriptionRequiredError || error.status === 402) {
+      return res.status(402).json({ error: error.message, upgradeRequired: true, requiredPlan: 'pro' });
+    }
     if (error.message?.includes('Rate exceeded') || error.status === 429) {
       return res.status(429).json({ error: 'Rate exceeded. Please wait.' });
     }

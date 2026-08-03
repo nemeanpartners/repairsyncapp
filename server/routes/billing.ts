@@ -240,6 +240,26 @@ async function syncSubscriptionState(params: {
     { merge: true },
   );
 
+  const companyId = typeof (data as any).companyId === "string" ? (data as any).companyId : null;
+  if (companyId) {
+    await setDoc(
+      doc(getFirestore(), "companies", companyId),
+      {
+        updatedAt: serverTimestamp(),
+        billingOwnerUid: uid,
+        subscriptionActive: isActive,
+        subscriptionStatus: normalizedStatus,
+        subscriptionSource: "stripe",
+        subscriptionPlan: params.plan || data.subscriptionPlan || null,
+        subscriptionInterval: params.interval || data.subscriptionInterval || null,
+        subscriptionCurrentPeriodEnd: params.currentPeriodEnd
+          ? new Date(params.currentPeriodEnd * 1000).toISOString()
+          : data.subscriptionCurrentPeriodEnd || null,
+      },
+      { merge: true },
+    );
+  }
+
   return {
     subscriptionActive: isActive,
     subscriptionStatus: normalizedStatus,
@@ -359,6 +379,24 @@ async function syncAppleSubscriptionState(params: {
     },
     { merge: true },
   );
+
+  const companyId = typeof existingData.companyId === "string" ? existingData.companyId : null;
+  if (companyId) {
+    await setDoc(
+      doc(getFirestore(), "companies", companyId),
+      {
+        updatedAt: serverTimestamp(),
+        billingOwnerUid: params.uid,
+        subscriptionActive: params.active,
+        subscriptionStatus: params.active ? "active" : "canceled",
+        subscriptionSource: "apple_iap",
+        subscriptionPlan: params.plan,
+        subscriptionInterval: params.interval,
+        subscriptionCurrentPeriodEnd: params.expiresAt || subscriptionCurrentPeriodEnd,
+      },
+      { merge: true },
+    );
+  }
 
   return {
     subscriptionActive: params.active,

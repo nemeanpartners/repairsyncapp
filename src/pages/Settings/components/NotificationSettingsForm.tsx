@@ -54,7 +54,7 @@ export function NotificationSettingsForm() {
         <div className="flex items-center justify-between">
           <div className="space-y-0.5 mt-2">
             <Label className="text-sm font-semibold text-zinc-900">SMS Alerts</Label>
-            <p className="text-xs text-zinc-500">Send status updates via SMS (requires Twilio)</p>
+            <p className="text-xs text-zinc-500">Send status updates through the connected SMS gateway</p>
           </div>
           <Controller
             control={control}
