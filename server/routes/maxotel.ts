@@ -186,7 +186,7 @@ maxotelRouter.get('/api/maxotel/calls', async (req, res) => {
         String(req.headers['x-company-id'] || ''),
         String(req.headers['x-user-id'] || ''),
       );
-      const apiKey = integrationConfig.maxotelApiKey || process.env.MAXOTEL_API_KEY;
+      const apiKey = integrationConfig.maxotelApiKey || process.env.REPAIRSYNC_APP_MAXOTEL_API_KEY;
       if (!apiKey) {
         return res.status(400).json({ error: 'Connect Maxotel in Settings > Integrations before fetching call logs.' });
       }

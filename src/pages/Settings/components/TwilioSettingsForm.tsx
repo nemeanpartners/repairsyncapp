@@ -5,7 +5,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../../providers/SettingsProvider';
 import { useAuth } from '../../../providers/AuthProvider';
 import { Button } from '@/components/ui/button';
-import { CheckCircle2, Loader2, ChevronDown, ChevronUp, Lock, MessageSquare, PhoneCall, Server, AlertTriangle } from 'lucide-react';
+import { CheckCircle2, Loader2, ChevronDown, ChevronUp, Lock, MessageSquare, PhoneCall, Server } from 'lucide-react';
 
 type TwilioSettingsFormProps = {
   expanded?: boolean;
@@ -43,11 +43,11 @@ export function TwilioSettingsForm({ expanded, onExpandedChange }: TwilioSetting
       setIsConfiguring(true);
       const response = await axios.post('/api/company/provision-messaging', {
         companyId: profile?.companyId,
-        includePhone: false,
+        includePhone: true,
       });
       await updateSettings('integrations', response.data.integrations as any);
       toast.success('Managed messaging configured', {
-        description: 'A separate RepairSync messaging account was generated for this company.',
+        description: 'MobileMessage, Backend SMS Relay, and Maxotel are configured for this company.',
       });
     } finally {
       setIsConfiguring(false);

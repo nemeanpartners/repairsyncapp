@@ -3,6 +3,8 @@ import { collection, collectionGroup, addDoc, updateDoc, doc, serverTimestamp, g
 import fs from 'fs';
 import path from 'path';
 import crypto from 'crypto';
+import { getApps as getAdminApps, initializeApp as initializeAdminApp, applicationDefault } from 'firebase-admin/app';
+import { FieldValue, getFirestore as getAdminFirestore } from 'firebase-admin/firestore';
 
 export const accountRouter = Router();
 
@@ -13,6 +15,17 @@ const getDb = () => getServerDb();
 function getFirebaseConfig() {
   const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
   return JSON.parse(fs.readFileSync(configPath, 'utf8'));
+}
+
+function getProvisioningDb() {
+  const config = getFirebaseConfig();
+  const app = getAdminApps().length
+    ? getAdminApps()[0]
+    : initializeAdminApp({
+        projectId: config.projectId,
+        credential: applicationDefault(),
+      });
+  return getAdminFirestore(app, config.firestoreDatabaseId || undefined);
 }
 
 // Helper to simulate authentication token decoding (since this is client sdk admin hybrid)
@@ -75,9 +88,13 @@ function createCompanyMessagingCredential(companyId: string) {
 
 async function ensureCompanyMessagingProvision(db: any, companyId: string, actorUid: string, options: { includePhone?: boolean } = {}) {
   const safeCompanyId = String(companyId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
-  const settingsRef = doc(db, 'companies', safeCompanyId, 'settings', 'integrations');
-  const settingsSnap = await getDoc(settingsRef).catch(() => null);
-  const existing = settingsSnap?.exists() ? settingsSnap.data() : {};
+  const settingsRef = db.collection('companies').doc(safeCompanyId).collection('settings').doc('integrations');
+  const settingsSnap = await settingsRef.get().catch(() => null);
+  const settingsExists =
+    typeof settingsSnap?.exists === 'function'
+      ? settingsSnap.exists()
+      : Boolean(settingsSnap?.exists);
+  const existing = settingsExists ? settingsSnap.data() : {};
   const credential = existing.managedMessagingApiKeyHash && existing.managedMessagingAccountId
     ? {
         accountId: String(existing.managedMessagingAccountId),
@@ -100,42 +117,42 @@ async function ensureCompanyMessagingProvision(db: any, companyId: string, actor
     managedMessagingAccountId: credential.accountId,
     managedMessagingApiKeyHash: credential.apiKeyHash,
     managedMessagingApiKeyLast4: credential.apiKeyLast4,
-    managedMessagingApiKeyCreatedAt: existing.managedMessagingApiKeyCreatedAt || serverTimestamp(),
-    managedMessagingConfiguredAt: serverTimestamp(),
+    managedMessagingApiKeyCreatedAt: existing.managedMessagingApiKeyCreatedAt || FieldValue.serverTimestamp(),
+    managedMessagingConfiguredAt: FieldValue.serverTimestamp(),
     managedMessagingConfiguredBy: actorUid,
-    ...(options.includePhone
+    ...(options.includePhone !== false
       ? {
           maxotelEnabled: true,
           maxotelApiKey: '',
           maxotelPhoneNumber: '',
           managedMaxotelEnabled: true,
           managedMaxotelMode: 'company_generated_account',
-          managedMaxotelConfiguredAt: serverTimestamp(),
+          managedMaxotelConfiguredAt: FieldValue.serverTimestamp(),
           managedMaxotelConfiguredBy: actorUid,
         }
       : {}),
   };
 
-  await setDoc(settingsRef, next, { merge: true });
-  await addDoc(collection(db, 'companies', safeCompanyId, 'audit_logs'), {
+  await settingsRef.set(next, { merge: true });
+  await db.collection('companies').doc(safeCompanyId).collection('audit_logs').add({
     action: 'MANAGED_MESSAGING_PROVISIONED',
     actorUserId: actorUid,
     accountId: credential.accountId,
-    includePhone: Boolean(options.includePhone),
-    timestamp: serverTimestamp(),
+    includePhone: options.includePhone !== false,
+    timestamp: FieldValue.serverTimestamp(),
   }).catch(() => {});
 
   return {
     mobileMessageEnabled: true,
     smsRelayEnabled: true,
     mobileMessageSenderId: 'RepairSync',
-    maxotelEnabled: Boolean(options.includePhone || existing.maxotelEnabled),
+    maxotelEnabled: Boolean(options.includePhone !== false || existing.maxotelEnabled),
     managedMessagingEnabled: true,
     managedMessagingMode: 'company_generated_account',
     managedMessagingProvider: 'repairsync_company_messaging',
     managedMessagingAccountId: credential.accountId,
     managedMessagingApiKeyLast4: credential.apiKeyLast4,
-    managedMaxotelEnabled: Boolean(options.includePhone || existing.managedMaxotelEnabled),
+    managedMaxotelEnabled: Boolean(options.includePhone !== false || existing.managedMaxotelEnabled),
   };
 }
 
@@ -165,15 +182,81 @@ async function createEmailPasswordUser(email: string, password: string) {
 
 accountRouter.post('/api/company/provision-messaging', checkAuth, checkAdmin, async (req: any, res: any) => {
   try {
-    const db = getDb();
+    const db = getProvisioningDb();
     const companyId = String(req.body.companyId || req.headers['x-company-id'] || '').trim();
     if (!companyId) return res.status(400).json({ error: 'Missing company ID' });
     const integrations = await ensureCompanyMessagingProvision(db, companyId, req.user.uid, {
-      includePhone: req.body.includePhone === true,
+      includePhone: req.body.includePhone !== false,
     });
     res.json({ success: true, integrations });
   } catch (error: any) {
     res.status(500).json({ error: error.message || 'Failed to provision company messaging' });
+  }
+});
+
+accountRouter.post('/api/admin/apple-review/professional', checkAuth, checkAdmin, async (req: any, res: any) => {
+  try {
+    const db = getProvisioningDb();
+    const reviewEmail = 'tryonapptestuser@gmail.com';
+    const userSnap = await db.collection('users').where('email', '==', reviewEmail).limit(1).get();
+    const companyUsersSnap = await db.collectionGroup('users').where('email', '==', reviewEmail).limit(5).get();
+    const userDoc = userSnap.docs[0] || null;
+    const companyUserDoc = companyUsersSnap.docs.find((candidate: any) => candidate.ref.path.startsWith('companies/')) || null;
+    const companyId =
+      (userDoc?.data()?.companyId as string | undefined) ||
+      (companyUserDoc ? companyUserDoc.ref.path.split('/')[1] : null);
+    const uid = userDoc?.id || companyUserDoc?.data()?.uid || null;
+
+    if (!companyId || !uid) {
+      return res.status(404).json({ error: 'Apple review user/company was not found.' });
+    }
+
+    const companyName = 'RepairSync Review Company';
+    const profilePatch = {
+      email: reviewEmail,
+      companyId,
+      companyName,
+      role: 'admin',
+      permissions: ['admin'],
+      hasAccess: true,
+      billingRequired: false,
+      subscriptionActive: true,
+      subscriptionStatus: 'active',
+      subscriptionPlan: 'pro',
+      subscriptionInterval: 'yearly',
+      subscriptionSource: 'app_review',
+      subscriptionGrandfathered: false,
+      updatedAt: FieldValue.serverTimestamp(),
+    };
+
+    await Promise.all([
+      db.collection('users').doc(String(uid)).set({ uid, ...profilePatch }, { merge: true }),
+      db.collection('companies').doc(companyId).set({
+        companyName,
+        billingOwnerUid: uid,
+        subscriptionActive: true,
+        subscriptionStatus: 'active',
+        subscriptionPlan: 'pro',
+        subscriptionInterval: 'yearly',
+        subscriptionSource: 'app_review',
+        updatedAt: FieldValue.serverTimestamp(),
+      }, { merge: true }),
+      db.collection('companies').doc(companyId).collection('users').doc(String(uid)).set({
+        uid,
+        ...profilePatch,
+        linkedAt: FieldValue.serverTimestamp(),
+      }, { merge: true }),
+      db.collection('companies').doc(companyId).collection('users').doc(reviewEmail).set({
+        uid,
+        ...profilePatch,
+        linkedAt: FieldValue.serverTimestamp(),
+      }, { merge: true }),
+    ]);
+
+    const integrations = await ensureCompanyMessagingProvision(db, companyId, String(uid), { includePhone: true });
+    res.json({ success: true, companyId, uid, integrations });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to update Apple review account.' });
   }
 });
 

@@ -119,14 +119,43 @@ export async function sendMobileMessage(
     }
   }
 
-  const username = (integrationConfig?.mobileMessageUsername || process.env.MOBILE_MESSAGE_USERNAME || '').trim();
-  const password = (integrationConfig?.mobileMessagePassword || process.env.MOBILE_MESSAGE_PASSWORD || '').trim();
-  const senderId = (integrationConfig?.mobileMessageSenderId || process.env.MOBILE_MESSAGE_SENDER_ID || '').trim();
-  const subdomain = (integrationConfig?.repairShoprSubdomain || process.env.REPAIRSHOPR_SUBDOMAIN || '').trim();
-  const apiKey = (integrationConfig?.repairShoprApiKey || process.env.REPAIRSHOPR_API_KEY || '').trim();
+  const usesManagedCompanyAccount = Boolean(integrationConfig?.managedMessagingEnabled && integrationConfig?.managedMessagingAccountId);
+  const username = (
+    usesManagedCompanyAccount
+      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME
+      : integrationConfig?.mobileMessageUsername || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME || ''
+  ).trim();
+  const password = (
+    usesManagedCompanyAccount
+      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD
+      : integrationConfig?.mobileMessagePassword || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD || ''
+  ).trim();
+  const senderId = (
+    usesManagedCompanyAccount
+      ? process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_SENDER_ID || integrationConfig?.mobileMessageSenderId || 'RepairSync'
+      : integrationConfig?.mobileMessageSenderId || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_SENDER_ID || 'RepairSync'
+  ).trim();
+  const subdomain = (
+    usesManagedCompanyAccount
+      ? process.env.REPAIRSYNC_APP_REPAIRSHOPR_SUBDOMAIN || ''
+      : integrationConfig?.repairShoprSubdomain || process.env.REPAIRSYNC_APP_REPAIRSHOPR_SUBDOMAIN || ''
+  ).trim();
+  const apiKey = (
+    usesManagedCompanyAccount
+      ? process.env.REPAIRSYNC_APP_REPAIRSHOPR_API_KEY || ''
+      : integrationConfig?.repairShoprApiKey || process.env.REPAIRSYNC_APP_REPAIRSHOPR_API_KEY || ''
+  ).trim();
 
   let mobileMessageError = null;
   let repairShoprError = null;
+
+  if (usesManagedCompanyAccount && !username && !password && !subdomain && !apiKey) {
+    throw new Error(JSON.stringify({
+      error: 'RepairSync app SMS provider is not configured yet.',
+      mobileMessageError: 'Missing REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME and REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD for this app.',
+      repairShoprError: null,
+    }));
+  }
 
   // 1. Mobile Message direct API
   if (username && password) {
@@ -137,7 +166,8 @@ export async function sendMobileMessage(
       async (num: string) => {
         const payload: any = { to: num, message: message };
         if (senderId) payload.sender = senderId;
-        if (custom_ref) payload.custom_ref = custom_ref;
+        if (custom_ref) payload.custom_ref = companyId ? `${companyId}:${custom_ref}` : custom_ref;
+        if (companyId) payload.metadata = { company_id: companyId, account_id: integrationConfig?.managedMessagingAccountId || null };
         return axios.post('https://api.mobilemessage.com.au/v1/messages', { messages: [payload] }, {
           headers: { 'Authorization': authHeader, 'Content-Type': 'application/json' }
         });
@@ -145,7 +175,9 @@ export async function sendMobileMessage(
       async (num: string) => {
         const params = new URLSearchParams({ api_username: username, api_password: password, to: num, message: message });
         if (senderId) params.append('sender', senderId);
-        if (custom_ref) params.append('custom_ref', custom_ref);
+        if (custom_ref) params.append('custom_ref', companyId ? `${companyId}:${custom_ref}` : custom_ref);
+        if (companyId) params.append('company_id', companyId);
+        if (integrationConfig?.managedMessagingAccountId) params.append('account_id', integrationConfig.managedMessagingAccountId);
         return axios.get(`https://api.mobilemessage.com.au/simple/send-sms.php?${params.toString()}`);
       }
     ];

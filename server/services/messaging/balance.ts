@@ -4,8 +4,8 @@ let cachedBalance: any = null;
 let lastBalanceFetch: number = 0;
 
 export async function getMobileMessageBalance(config?: { mobileMessageUsername?: string; mobileMessagePassword?: string }) {
-  const username = config?.mobileMessageUsername || process.env.MOBILE_MESSAGE_USERNAME;
-  const password = config?.mobileMessagePassword || process.env.MOBILE_MESSAGE_PASSWORD;
+  const username = config?.mobileMessageUsername || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME;
+  const password = config?.mobileMessagePassword || process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD;
 
   if (!username || !password) {
     return { credit_balance: null };

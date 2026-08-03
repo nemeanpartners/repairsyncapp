@@ -422,7 +422,7 @@ export function IntegrationsSettings() {
     }
     const response = await axios.post("/api/company/provision-messaging", {
       companyId: profile?.companyId,
-      includePhone: key === "maxotelEnabled",
+      includePhone: true,
     });
     await updateSettings("integrations", response.data.integrations as any);
     toast.success("Company integration provisioned", {
@@ -473,6 +473,39 @@ export function IntegrationsSettings() {
     window.addEventListener("message", handleOAuthMessage);
     return () => window.removeEventListener("message", handleOAuthMessage);
   }, []);
+
+  useEffect(() => {
+    if (!isProfessional || !profile?.companyId || !settings?.integrations) return;
+    if (mobileMessageConnected && smsRelayConnected && maxotelConnected) return;
+
+    let cancelled = false;
+    const provisionProfessionalIntegrations = async () => {
+      try {
+        const response = await axios.post("/api/company/provision-messaging", {
+          companyId: profile.companyId,
+          includePhone: true,
+        });
+        if (!cancelled && response.data?.integrations) {
+          await updateSettings("integrations", response.data.integrations as any);
+        }
+      } catch (error) {
+        console.warn("Automatic messaging provisioning failed", error);
+      }
+    };
+
+    provisionProfessionalIntegrations();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    isProfessional,
+    profile?.companyId,
+    settings?.integrations,
+    mobileMessageConnected,
+    smsRelayConnected,
+    maxotelConnected,
+    updateSettings,
+  ]);
 
   const handleConnectZoho = async () => {
     if (!isProfessional) {

@@ -21,9 +21,9 @@ export type CompanyIntegrationConfig = {
 
 export function getManagedIntegrationCapabilities() {
   return {
-    managedMobileMessage: Boolean(process.env.MOBILE_MESSAGE_USERNAME && process.env.MOBILE_MESSAGE_PASSWORD),
-    managedRepairShopr: Boolean(process.env.REPAIRSHOPR_SUBDOMAIN && process.env.REPAIRSHOPR_API_KEY),
-    managedMaxotel: Boolean(process.env.MAXOTEL_API_KEY),
+    managedMobileMessage: Boolean(process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_USERNAME && process.env.REPAIRSYNC_APP_MOBILE_MESSAGE_PASSWORD),
+    managedRepairShopr: Boolean(process.env.REPAIRSYNC_APP_REPAIRSHOPR_SUBDOMAIN && process.env.REPAIRSYNC_APP_REPAIRSHOPR_API_KEY),
+    managedMaxotel: Boolean(process.env.REPAIRSYNC_APP_MAXOTEL_API_KEY),
   };
 }
 
@@ -82,7 +82,9 @@ export async function getCompanyIntegrationConfig(db: any, companyId: string | n
     asString(settings.mobileMessageUsername) ||
       asString(settings.mobileMessagePassword) ||
       asString(settings.repairShoprApiKey) ||
-      asString(settings.maxotelApiKey),
+      asString(settings.maxotelApiKey) ||
+      (Boolean(settings.managedMessagingEnabled) && asString(settings.managedMessagingAccountId)) ||
+      Boolean(settings.managedMaxotelEnabled),
   );
 
   if (hasCompanyCredentials && !(await companyHasProfessionalAccess(db, safeCompanyId, userId))) {

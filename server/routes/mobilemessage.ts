@@ -9,7 +9,7 @@ import {
   processInboundWebhook
 } from '../services/messaging.js';
 import { doc, getDocs, collection, query, where, limit, updateDoc } from 'firebase/firestore';
-import { companyCollection, companyDoc } from '../companyFirestore.js';
+import { companyCollection, companyDoc, companyDocForCompany } from '../companyFirestore.js';
 import {
   getCompanyIntegrationConfig,
   getManagedIntegrationCapabilities,
@@ -161,7 +161,13 @@ mobileMessageRouter.all('/api/webhooks/mobilemessage/status', async (req, res) =
     for (const update of statusesToUpdate) {
       try {
         if (update.custom_ref) {
-          await updateDoc(companyDoc(db, 'messages', update.custom_ref), { status: update.status });
+          const [companyIdFromRef, messageIdFromRef] = String(update.custom_ref).includes(':')
+            ? String(update.custom_ref).split(':', 2)
+            : [null, String(update.custom_ref)];
+          const targetDoc = companyIdFromRef
+            ? companyDocForCompany(db, companyIdFromRef, 'messages', messageIdFromRef)
+            : companyDoc(db, 'messages', messageIdFromRef);
+          await updateDoc(targetDoc, { status: update.status });
         } else if (update.message_id) {
           const q = query(companyCollection(db, 'messages'), where('external_id', '==', update.message_id), limit(1));
           const snap = await getDocs(q);

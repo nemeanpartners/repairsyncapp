@@ -1,6 +1,7 @@
 import { Router } from "express";
 import axios from "axios";
 import Stripe from "stripe";
+import crypto from "crypto";
 import {
   collection,
   doc,
@@ -81,6 +82,59 @@ type AppleReceiptVerification = {
     in_app?: AppleReceiptItem[];
   };
 };
+
+function createCompanyMessagingCredential(companyId: string) {
+  const safeCompanyId = String(companyId || "").trim().replace(/[^a-zA-Z0-9_-]/g, "_") || "default";
+  const accountSuffix = crypto.randomBytes(6).toString("hex");
+  const secret = `rsk_live_${crypto.randomBytes(32).toString("base64url")}`;
+  return {
+    accountId: `rsmsg_${safeCompanyId}_${accountSuffix}`,
+    apiKeyHash: crypto.createHash("sha256").update(secret).digest("hex"),
+    apiKeyLast4: secret.slice(-4),
+  };
+}
+
+async function provisionCompanyMessagingForProfessional(companyId: string | null, actorUid: string, plan?: string | null, active?: boolean) {
+  if (!companyId || !active || plan !== "pro") return;
+
+  const db = getFirestore();
+  const settingsRef = doc(db, "companies", companyId, "settings", "integrations");
+  const settingsSnap = await getDoc(settingsRef).catch(() => null);
+  const existing = settingsSnap?.exists() ? settingsSnap.data() as Record<string, any> : {};
+  const credential = existing.managedMessagingApiKeyHash && existing.managedMessagingAccountId
+    ? {
+        accountId: String(existing.managedMessagingAccountId),
+        apiKeyHash: String(existing.managedMessagingApiKeyHash),
+        apiKeyLast4: String(existing.managedMessagingApiKeyLast4 || ""),
+      }
+    : createCompanyMessagingCredential(companyId);
+
+  await setDoc(settingsRef, {
+    mobileMessageEnabled: true,
+    smsRelayEnabled: true,
+    maxotelEnabled: true,
+    mobileMessageUsername: "",
+    mobileMessagePassword: "",
+    mobileMessageSenderId: "RepairSync",
+    repairShoprSubdomain: "",
+    repairShoprApiKey: "",
+    maxotelApiKey: "",
+    maxotelPhoneNumber: "",
+    managedMessagingEnabled: true,
+    managedMessagingMode: "company_generated_account",
+    managedMessagingProvider: "repairsync_company_messaging",
+    managedMessagingAccountId: credential.accountId,
+    managedMessagingApiKeyHash: credential.apiKeyHash,
+    managedMessagingApiKeyLast4: credential.apiKeyLast4,
+    managedMessagingApiKeyCreatedAt: existing.managedMessagingApiKeyCreatedAt || serverTimestamp(),
+    managedMessagingConfiguredAt: serverTimestamp(),
+    managedMessagingConfiguredBy: actorUid,
+    managedMaxotelEnabled: true,
+    managedMaxotelMode: "company_generated_account",
+    managedMaxotelConfiguredAt: serverTimestamp(),
+    managedMaxotelConfiguredBy: actorUid,
+  }, { merge: true });
+}
 
 function getStripeClient() {
   const secretKey = process.env.STRIPE_SECRET_KEY;
@@ -258,6 +312,12 @@ async function syncSubscriptionState(params: {
       },
       { merge: true },
     );
+    await provisionCompanyMessagingForProfessional(
+      companyId,
+      uid,
+      params.plan || data.subscriptionPlan || null,
+      isActive,
+    ).catch((error) => console.warn("Failed to provision company messaging after Stripe sync", error));
   }
 
   return {
@@ -396,6 +456,12 @@ async function syncAppleSubscriptionState(params: {
       },
       { merge: true },
     );
+    await provisionCompanyMessagingForProfessional(
+      companyId,
+      params.uid,
+      params.plan,
+      params.active,
+    ).catch((error) => console.warn("Failed to provision company messaging after Apple sync", error));
   }
 
   return {
