@@ -1,15 +1,11 @@
-import React, { useEffect, useState } from 'react';
-import { useForm } from 'react-hook-form';
+import React, { useState } from 'react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useNavigate } from 'react-router-dom';
 import { useSettings } from '../../../providers/SettingsProvider';
 import { useAuth } from '../../../providers/AuthProvider';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Save, Loader2, LinkIcon, ChevronDown, ChevronUp, Lock, MessageSquare, PhoneCall } from 'lucide-react';
-import { IntegrationsSettings } from '../../../types/settings';
+import { CheckCircle2, Loader2, ChevronDown, ChevronUp, Lock, MessageSquare, PhoneCall, Server, AlertTriangle } from 'lucide-react';
 
 type TwilioSettingsFormProps = {
   expanded?: boolean;
@@ -28,95 +24,94 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
   const [internalExpanded, setInternalExpanded] = useState(false);
   const isExpanded = expanded ?? internalExpanded;
   const setIsExpanded = onExpandedChange ?? setInternalExpanded;
-  const [isCheckingBalance, setIsCheckingBalance] = useState(false);
+  const [isConfiguring, setIsConfiguring] = useState(false);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
   const isProfessional =
     Boolean(profile?.subscriptionActive) &&
     (profile?.subscriptionPlan === 'pro' || profile?.subscriptionPlan === 'enterprise');
+  const managedMessagingReady = Boolean(capabilities?.managedMobileMessage || capabilities?.managedRepairShopr);
+  const managedPhoneReady = Boolean(capabilities?.managedMaxotel);
+  const managedMessagingEnabled = Boolean(settings?.integrations?.mobileMessageEnabled && settings?.integrations?.smsRelayEnabled);
+  const managedPhoneEnabled = Boolean(settings?.integrations?.maxotelEnabled);
 
-  const { register, handleSubmit, reset, formState: { isSubmitting, isDirty } } = useForm<IntegrationsSettings>({
-    defaultValues: {
-      rcsEnabled: settings?.integrations?.rcsEnabled || false,
-      mobileMessageEnabled: settings?.integrations?.mobileMessageEnabled || false,
-      mobileMessageUsername: settings?.integrations?.mobileMessageUsername || '',
-      mobileMessagePassword: settings?.integrations?.mobileMessagePassword || '',
-      mobileMessageSenderId: settings?.integrations?.mobileMessageSenderId || '',
-      smsRelayEnabled: settings?.integrations?.smsRelayEnabled || false,
-      repairShoprSubdomain: settings?.integrations?.repairShoprSubdomain || '',
-      repairShoprApiKey: settings?.integrations?.repairShoprApiKey || '',
-      maxotelEnabled: settings?.integrations?.maxotelEnabled || false,
-      maxotelApiKey: settings?.integrations?.maxotelApiKey || '',
-      maxotelPhoneNumber: settings?.integrations?.maxotelPhoneNumber || '',
-    }
-  });
-
-  useEffect(() => {
-    if (settings?.integrations) {
-      reset({
-        ...settings.integrations,
-        mobileMessageEnabled: settings.integrations.mobileMessageEnabled || false,
-        mobileMessageUsername: settings.integrations.mobileMessageUsername || '',
-        mobileMessagePassword: settings.integrations.mobileMessagePassword || '',
-        mobileMessageSenderId: settings.integrations.mobileMessageSenderId || '',
-        smsRelayEnabled: settings.integrations.smsRelayEnabled || false,
-        repairShoprSubdomain: settings.integrations.repairShoprSubdomain || '',
-        repairShoprApiKey: settings.integrations.repairShoprApiKey || '',
-        maxotelEnabled: settings.integrations.maxotelEnabled || false,
-        maxotelApiKey: settings.integrations.maxotelApiKey || '',
-        maxotelPhoneNumber: settings.integrations.maxotelPhoneNumber || '',
-      });
-    }
-  }, [settings?.integrations, reset]);
-
-  const onSubmit = async (data: IntegrationsSettings) => {
+  const handleConfigureManaged = async () => {
     if (!isProfessional) {
       toast.error('Professional subscription required', {
         description: 'Switch subscriptions in Settings to connect SMS and phone integrations.',
       });
       return;
     }
-    const mobileMessageReady = Boolean(
-      capabilities?.managedMobileMessage || (data.mobileMessageUsername?.trim() && data.mobileMessagePassword?.trim())
-    );
-    const repairShoprReady = Boolean(
-      capabilities?.managedRepairShopr || (data.repairShoprSubdomain?.trim() && data.repairShoprApiKey?.trim())
-    );
-    const maxotelReady = Boolean(capabilities?.managedMaxotel || data.maxotelApiKey?.trim());
-
-    if (data.mobileMessageEnabled && !mobileMessageReady) {
-      toast.error('MobileMessage setup required', {
-        description: 'Enter a MobileMessage username and password before enabling live SMS.',
+    if (!managedMessagingReady) {
+      toast.error('RepairSync managed SMS is not configured', {
+        description: 'The app is ready for one-click setup, but the server-side MobileMessage credentials must be set in Cloud Run first.',
       });
       return;
     }
-    if (data.smsRelayEnabled && !mobileMessageReady && !repairShoprReady) {
-      toast.error('SMS relay setup required', {
-        description: 'Enter MobileMessage or RepairShopr credentials before enabling the backend SMS relay.',
+    try {
+      setIsConfiguring(true);
+      const nextIntegrations = {
+        ...settings?.integrations,
+        mobileMessageEnabled: true,
+        smsRelayEnabled: true,
+        mobileMessageUsername: '',
+        mobileMessagePassword: '',
+        mobileMessageSenderId: 'RepairSync',
+        repairShoprSubdomain: '',
+        repairShoprApiKey: '',
+        managedMessagingEnabled: true,
+        managedMessagingProvider: capabilities?.managedMobileMessage ? 'mobilemessage' : 'repairshopr',
+        managedMessagingConfiguredAt: new Date().toISOString(),
+      };
+      await updateSettings('integrations', nextIntegrations as any);
+      toast.success('Managed messaging configured', {
+        description: 'SMS is enabled for this company using RepairSync managed gateway credentials.',
       });
-      return;
+    } finally {
+      setIsConfiguring(false);
     }
-    if (data.maxotelEnabled && !maxotelReady) {
-      toast.error('Maxotel setup required', {
-        description: 'Enter a Maxotel API key before enabling phone logs.',
-      });
-      return;
-    }
-
-    await updateSettings('integrations', data);
-    reset(data);
-    toast.success('Messaging integrations saved');
   };
 
-  const handleCheckBalance = async () => {
+  const handleConfigureManagedPhone = async () => {
+    if (!isProfessional) {
+      toast.error('Professional subscription required', {
+        description: 'Switch subscriptions in Settings to connect phone integrations.',
+      });
+      return;
+    }
+    if (!managedPhoneReady) {
+      toast.error('RepairSync managed Maxotel is not configured', {
+        description: 'The app is ready for one-click setup, but the server-side Maxotel key must be set in Cloud Run first.',
+      });
+      return;
+    }
     try {
-      setIsCheckingBalance(true);
+      setIsConfiguring(true);
+      await updateSettings('integrations', {
+        maxotelEnabled: true,
+        maxotelApiKey: '',
+        maxotelPhoneNumber: '',
+        managedMaxotelEnabled: true,
+        managedMaxotelConfiguredAt: new Date().toISOString(),
+      } as any);
+      toast.success('Managed Maxotel configured', {
+        description: 'Phone logs are enabled for this company using RepairSync managed credentials.',
+      });
+    } finally {
+      setIsConfiguring(false);
+    }
+  };
+
+  const handleCheckStatus = async () => {
+    try {
+      setIsCheckingStatus(true);
       const response = await axios.get('/api/mobilemessage/balance');
       const balance = response.data?.credit_balance;
       if (balance === null || balance === undefined) {
-        toast.warning('MobileMessage did not return a balance', {
-          description: 'Check the username and password before sending live SMS.',
+        toast.warning('Managed SMS status checked', {
+          description: 'The gateway responded without a current credit balance.',
         });
       } else {
-        toast.success('MobileMessage connected', {
+        toast.success('Managed SMS is active', {
           description: `Current SMS credit balance: ${balance}`,
         });
       }
@@ -126,12 +121,12 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
           description: error.response.data.error,
         });
       } else {
-        toast.error('MobileMessage check failed', {
+        toast.error('Managed SMS check failed', {
           description: error.response?.data?.error || error.message,
         });
       }
     } finally {
-      setIsCheckingBalance(false);
+      setIsCheckingStatus(false);
     }
   };
 
@@ -145,8 +140,8 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
             <MessageSquare className="w-5 h-5 text-emerald-600" />
           </div>
           <div>
-            <h3 className="font-bold text-zinc-900">SMS and Phone Integrations</h3>
-            <p className="text-sm text-zinc-500">Connect MobileMessage Gateway, RepairShopr fallback, and Maxotel call logs</p>
+            <h3 className="font-bold text-zinc-900">Managed SMS and Phone Integrations</h3>
+            <p className="text-sm text-zinc-500">Enable RepairSync-managed messaging and phone services for this company</p>
           </div>
         </div>
         <Button variant="outline" onClick={() => setIsExpanded(!isExpanded)}>
@@ -178,81 +173,73 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
       )}
 
       {isExpanded && isProfessional && (
-        <form onSubmit={handleSubmit(onSubmit)} className="p-6 border-t border-zinc-100 bg-zinc-50/50 space-y-6">
+        <div className="p-6 border-t border-zinc-100 bg-zinc-50/50 space-y-6">
           <div className="rounded-2xl border border-zinc-200 bg-white p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <MessageSquare className="h-4 w-4 text-emerald-600" />
-              <h4 className="font-bold text-zinc-900">MobileMessage Gateway</h4>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-xl bg-emerald-50 p-2 text-emerald-600">
+                  <MessageSquare className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-zinc-900">RepairSync Managed SMS</h4>
+                  <p className="text-sm text-zinc-500">
+                    Sends customer SMS through RepairSync server credentials while storing messages inside this company only.
+                  </p>
+                </div>
+              </div>
+              {managedMessagingEnabled ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /> : null}
             </div>
-            <label className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
-              <input type="checkbox" {...register('mobileMessageEnabled')} className="h-4 w-4 rounded border-zinc-300" />
-              Enable outbound SMS through this company account
-            </label>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>API Username</Label>
-                <Input {...register('mobileMessageUsername')} autoComplete="off" placeholder="MobileMessage username" />
+            {!managedMessagingReady && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="flex gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>RepairSync managed SMS credentials are not set on the server yet. Users do not need API keys.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>API Password</Label>
-                <Input {...register('mobileMessagePassword')} type="password" autoComplete="new-password" placeholder="MobileMessage password" />
-              </div>
-              <div className="space-y-2 md:col-span-2">
-                <Label>Sender ID</Label>
-                <Input {...register('mobileMessageSenderId')} placeholder="RepairSync or approved sender" />
-              </div>
-            </div>
-            <Button type="button" variant="outline" onClick={handleCheckBalance} disabled={isCheckingBalance}>
-              {isCheckingBalance ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <LinkIcon className="w-4 h-4 mr-2" />}
-              Check MobileMessage Balance
-            </Button>
-          </div>
-
-          <div className="rounded-2xl border border-zinc-200 bg-white p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <LinkIcon className="h-4 w-4 text-blue-600" />
-              <h4 className="font-bold text-zinc-900">RepairShopr SMS Fallback</h4>
-            </div>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>RepairShopr Subdomain</Label>
-                <Input {...register('repairShoprSubdomain')} placeholder="yourshop" />
-              </div>
-              <div className="space-y-2">
-                <Label>RepairShopr API Key</Label>
-                <Input {...register('repairShoprApiKey')} type="password" autoComplete="new-password" placeholder="API key" />
-              </div>
+            )}
+            <div className="grid gap-2 sm:grid-cols-2">
+              <Button type="button" onClick={handleConfigureManaged} disabled={isConfiguring || managedMessagingEnabled}>
+                {isConfiguring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Server className="mr-2 h-4 w-4" />}
+                {managedMessagingEnabled ? 'Configured' : 'Configure Automatically'}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleCheckStatus} disabled={isCheckingStatus || !managedMessagingEnabled}>
+                {isCheckingStatus ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <CheckCircle2 className="mr-2 h-4 w-4" />}
+                Check Gateway Status
+              </Button>
             </div>
           </div>
 
           <div className="rounded-2xl border border-zinc-200 bg-white p-4 space-y-4">
-            <div className="flex items-center gap-2">
-              <PhoneCall className="h-4 w-4 text-purple-600" />
-              <h4 className="font-bold text-zinc-900">Maxotel</h4>
+            <div className="flex items-start justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 rounded-xl bg-purple-50 p-2 text-purple-600">
+                  <PhoneCall className="h-4 w-4" />
+                </div>
+                <div>
+                  <h4 className="font-bold text-zinc-900">RepairSync Managed Maxotel</h4>
+                  <p className="text-sm text-zinc-500">
+                    Enables phone log visibility for this company using RepairSync server-side Maxotel credentials.
+                  </p>
+                </div>
+              </div>
+              {managedPhoneEnabled ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /> : null}
             </div>
-            <label className="flex items-center gap-2 text-sm font-semibold text-zinc-700">
-              <input type="checkbox" {...register('maxotelEnabled')} className="h-4 w-4 rounded border-zinc-300" />
-              Enable Maxotel call logs for this company
-            </label>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label>Maxotel API Key</Label>
-                <Input {...register('maxotelApiKey')} type="password" autoComplete="new-password" placeholder="Maxotel API key" />
+            {!managedPhoneReady && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="flex gap-2">
+                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
+                  <p>RepairSync managed Maxotel credentials are not set on the server yet. Users do not need API keys.</p>
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label>Business Phone Number</Label>
-                <Input {...register('maxotelPhoneNumber')} placeholder="0733681772" />
-              </div>
+            )}
+            <div>
+              <Button type="button" onClick={handleConfigureManagedPhone} disabled={isConfiguring || managedPhoneEnabled}>
+                {isConfiguring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PhoneCall className="mr-2 h-4 w-4" />}
+                {managedPhoneEnabled ? 'Configured' : 'Configure Automatically'}
+              </Button>
             </div>
           </div>
-
-          <div className="pt-2 flex justify-end">
-            <Button type="submit" disabled={isSubmitting || !isDirty}>
-              {isSubmitting ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : <Save className="w-4 h-4 mr-2" />}
-              Save Integrations
-            </Button>
-          </div>
-        </form>
+        </div>
       )}
     </div>
   );

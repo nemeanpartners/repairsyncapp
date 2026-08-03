@@ -376,16 +376,9 @@ export function IntegrationsSettings() {
     navigate("/payments?plan=pro&interval=monthly");
   };
 
-  const mobileMessageAvailable = Boolean(
-    capabilities.managedMobileMessage ||
-      (settings?.integrations?.mobileMessageUsername && settings?.integrations?.mobileMessagePassword)
-  );
-  const maxotelAvailable = Boolean(capabilities.managedMaxotel || settings?.integrations?.maxotelApiKey);
-  const smsRelayAvailable = Boolean(
-    mobileMessageAvailable ||
-      capabilities.managedRepairShopr ||
-      (settings?.integrations?.repairShoprSubdomain && settings?.integrations?.repairShoprApiKey)
-  );
+  const mobileMessageAvailable = Boolean(capabilities.managedMobileMessage);
+  const maxotelAvailable = Boolean(capabilities.managedMaxotel);
+  const smsRelayAvailable = Boolean(capabilities.managedMobileMessage || capabilities.managedRepairShopr);
   const mobileMessageConnected = Boolean(settings?.integrations?.mobileMessageEnabled && mobileMessageAvailable);
   const maxotelConnected = Boolean(settings?.integrations?.maxotelEnabled && maxotelAvailable);
   const smsRelayConnected = Boolean(settings?.integrations?.smsRelayEnabled && smsRelayAvailable);
@@ -414,12 +407,30 @@ export function IntegrationsSettings() {
     }
     if (!available) {
       openMessagingConfig(
-        "Provider setup required",
-        "Enter this company's provider credentials below, or configure RepairSync managed gateway credentials before enabling live messaging.",
+        "RepairSync managed service is not configured",
+        "Users do not need API keys. The managed provider credentials must be set once in Cloud Run before this can be enabled for companies.",
       );
       return;
     }
-    await updateSettings("integrations", { [key]: true } as any);
+    await updateSettings("integrations", {
+      [key]: true,
+      ...(key === "mobileMessageEnabled" ? {
+        mobileMessageUsername: "",
+        mobileMessagePassword: "",
+        mobileMessageSenderId: "RepairSync",
+        managedMessagingEnabled: true,
+        managedMessagingProvider: "mobilemessage",
+      } : {}),
+      ...(key === "smsRelayEnabled" ? {
+        repairShoprSubdomain: "",
+        repairShoprApiKey: "",
+        managedSmsRelayEnabled: true,
+      } : {}),
+      ...(key === "maxotelEnabled" ? {
+        maxotelApiKey: "",
+        managedMaxotelEnabled: true,
+      } : {}),
+    } as any);
     toast.success("Integration connected");
   };
 
