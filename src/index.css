@@ -45,6 +45,16 @@
 @import "shadcn/tailwind.css";
 @import "@fontsource-variable/inter";
 
+[data-sonner-toaster][data-y-position="top"] {
+  top: calc(env(safe-area-inset-top, 0px) + 4.5rem) !important;
+}
+
+@media (min-width: 768px) {
+  [data-sonner-toaster][data-y-position="top"] {
+    top: calc(env(safe-area-inset-top, 0px) + 1rem) !important;
+  }
+}
+
 @custom-variant dark (&:is(.dark *));
 
 @theme inline {

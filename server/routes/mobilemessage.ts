@@ -12,12 +12,19 @@ import { doc, getDocs, collection, query, where, limit, updateDoc } from 'fireba
 import { companyCollection, companyDoc } from '../companyFirestore.js';
 import {
   getCompanyIntegrationConfig,
+  getManagedIntegrationCapabilities,
+  hasUsableMobileMessage,
+  hasUsableSmsRelay,
   ProfessionalSubscriptionRequiredError,
 } from '../services/companyIntegrations.js';
 
 export const mobileMessageRouter = Router();
 
 export { normalizePhone };
+
+mobileMessageRouter.get('/api/integrations/capabilities', (_req, res) => {
+  res.json(getManagedIntegrationCapabilities());
+});
 
 mobileMessageRouter.get('/api/mobilemessage/shorten', async (req, res) => {
   const { url } = req.query;
@@ -57,9 +64,13 @@ mobileMessageRouter.post('/api/mobilemessage/send', async (req, res) => {
           String(req.headers['x-user-id'] || ''),
         )
       : undefined;
-    if (integrationConfig && !integrationConfig.mobileMessageEnabled && !integrationConfig.smsRelayEnabled) {
+    if (
+      integrationConfig &&
+      (!integrationConfig.mobileMessageEnabled || !hasUsableMobileMessage(integrationConfig)) &&
+      (!integrationConfig.smsRelayEnabled || !hasUsableSmsRelay(integrationConfig))
+    ) {
       return res.status(400).json({
-        error: "Enable MobileMessage Gateway in Settings > Integrations before sending SMS.",
+        error: "Connect MobileMessage Gateway in Settings > Integrations before sending SMS.",
         integrationRequired: true,
       });
     }

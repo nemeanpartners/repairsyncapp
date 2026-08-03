@@ -296,7 +296,8 @@ function IntegrationActionCard({
   title,
   description,
   icon: Icon,
-  enabled,
+  status,
+  statusText,
   isProfessional,
   onEnable,
   onUpgrade,
@@ -304,40 +305,48 @@ function IntegrationActionCard({
   title: string;
   description: string;
   icon: React.ElementType;
-  enabled: boolean;
+  status: "connected" | "available" | "setup-required";
+  statusText: string;
   isProfessional: boolean;
   onEnable: () => void;
   onUpgrade: () => void;
 }) {
+  const isConnected = status === "connected";
+  const isSetupRequired = status === "setup-required";
+
   return (
     <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm">
       <div className="flex items-start gap-4">
-        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}>
+        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${isConnected ? 'bg-emerald-50 text-emerald-600' : isSetupRequired ? 'bg-amber-50 text-amber-600' : 'bg-zinc-100 text-zinc-500'}`}>
           <Icon className="w-5 h-5" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <h3 className="font-bold text-zinc-900">{title}</h3>
-            {enabled ? (
-              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase text-emerald-700">
-                Enabled
-              </span>
-            ) : null}
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold uppercase ${isConnected ? 'bg-emerald-50 text-emerald-700' : isSetupRequired ? 'bg-amber-50 text-amber-700' : 'bg-blue-50 text-blue-700'}`}>
+              {statusText}
+            </span>
           </div>
           <p className="mt-1 text-sm leading-5 text-zinc-500">{description}</p>
         </div>
       </div>
       <Button
         className="mt-4 w-full"
-        variant={enabled ? "outline" : "default"}
+        variant={isConnected ? "outline" : "default"}
         onClick={isProfessional ? onEnable : onUpgrade}
       >
-        {!isProfessional ? <Lock className="mr-2 h-4 w-4" /> : enabled ? <CheckCircle2 className="mr-2 h-4 w-4" /> : <LinkIcon className="mr-2 h-4 w-4" />}
-        {!isProfessional ? "Switch to Professional" : enabled ? "Connected" : "Connect"}
+        {!isProfessional ? <Lock className="mr-2 h-4 w-4" /> : isConnected ? <CheckCircle2 className="mr-2 h-4 w-4" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+        {!isProfessional ? "Switch to Professional" : isConnected ? "Connected" : isSetupRequired ? "Configure" : "Connect"}
       </Button>
     </div>
   );
 }
+
+type IntegrationCapabilities = {
+  managedMobileMessage: boolean;
+  managedRepairShopr: boolean;
+  managedMaxotel: boolean;
+};
 
 export function IntegrationsSettings() {
   const [zohoStatus, setZohoStatus] = useState<"syncing" | "active" | "inactive">("syncing");
@@ -345,6 +354,12 @@ export function IntegrationsSettings() {
   const [requestName, setRequestName] = useState("");
   const [requestMessage, setRequestMessage] = useState("");
   const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
+  const [smsConfigOpen, setSmsConfigOpen] = useState(false);
+  const [capabilities, setCapabilities] = useState<IntegrationCapabilities>({
+    managedMobileMessage: false,
+    managedRepairShopr: false,
+    managedMaxotel: false,
+  });
   const { settings, updateSettings } = useSettings();
   const { profile, user } = useAuth();
   const navigate = useNavigate();
@@ -361,13 +376,51 @@ export function IntegrationsSettings() {
     navigate("/payments?plan=pro&interval=monthly");
   };
 
-  const updateIntegrationFlag = async (key: "mobileMessageEnabled" | "maxotelEnabled" | "smsRelayEnabled") => {
+  const mobileMessageAvailable = Boolean(
+    capabilities.managedMobileMessage ||
+      (settings?.integrations?.mobileMessageUsername && settings?.integrations?.mobileMessagePassword)
+  );
+  const maxotelAvailable = Boolean(capabilities.managedMaxotel || settings?.integrations?.maxotelApiKey);
+  const smsRelayAvailable = Boolean(
+    mobileMessageAvailable ||
+      capabilities.managedRepairShopr ||
+      (settings?.integrations?.repairShoprSubdomain && settings?.integrations?.repairShoprApiKey)
+  );
+  const mobileMessageConnected = Boolean(settings?.integrations?.mobileMessageEnabled && mobileMessageAvailable);
+  const maxotelConnected = Boolean(settings?.integrations?.maxotelEnabled && maxotelAvailable);
+  const smsRelayConnected = Boolean(settings?.integrations?.smsRelayEnabled && smsRelayAvailable);
+
+  const getActionStatus = (enabled: boolean, available: boolean) => {
+    if (enabled && available) return { status: "connected" as const, statusText: "Connected" };
+    if (available) return { status: "available" as const, statusText: "Available" };
+    return { status: "setup-required" as const, statusText: "Setup Required" };
+  };
+
+  const openMessagingConfig = (title: string, description: string) => {
+    setSmsConfigOpen(true);
+    toast.error(title, { description });
+    window.setTimeout(() => {
+      document.getElementById("sms-phone-integrations")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 50);
+  };
+
+  const updateIntegrationFlag = async (
+    key: "mobileMessageEnabled" | "maxotelEnabled" | "smsRelayEnabled",
+    available: boolean,
+  ) => {
     if (!isProfessional) {
       requireProfessional();
       return;
     }
+    if (!available) {
+      openMessagingConfig(
+        "Provider setup required",
+        "Enter this company's provider credentials below, or configure RepairSync managed gateway credentials before enabling live messaging.",
+      );
+      return;
+    }
     await updateSettings("integrations", { [key]: true } as any);
-    toast.success("Integration enabled");
+    toast.success("Integration connected");
   };
 
   const handleToggleRcs = async () => {
@@ -385,12 +438,16 @@ export function IntegrationsSettings() {
 
   const refreshIntegrationStatus = async () => {
     try {
-      const [zohoRes, xeroRes] = await Promise.all([
+      const [zohoRes, xeroRes, capabilityRes] = await Promise.all([
         axios.get("/api/zoho/status", { validateStatus: () => true }),
-        axios.get("/api/xero/status", { validateStatus: () => true })
+        axios.get("/api/xero/status", { validateStatus: () => true }),
+        axios.get("/api/integrations/capabilities", { validateStatus: () => true }),
       ]);
       setZohoStatus(zohoRes.status === 200 ? zohoRes.data.status : "inactive");
       setXeroStatus(xeroRes.status === 200 ? xeroRes.data.status : "inactive");
+      if (capabilityRes.status === 200) {
+        setCapabilities(capabilityRes.data);
+      }
     } catch (e) {
       console.error("Failed to refresh status", e);
     }
@@ -474,27 +531,27 @@ export function IntegrationsSettings() {
           title="MobileMessage Gateway"
           description="Send real SMS messages to customer mobile numbers through the MobileMessage API and Australian carrier networks."
           icon={MessageSquare}
-          enabled={Boolean(settings?.integrations?.mobileMessageEnabled)}
+          {...getActionStatus(mobileMessageConnected, mobileMessageAvailable)}
           isProfessional={isProfessional}
-          onEnable={() => updateIntegrationFlag("mobileMessageEnabled")}
+          onEnable={() => updateIntegrationFlag("mobileMessageEnabled", mobileMessageAvailable)}
           onUpgrade={requireProfessional}
         />
         <IntegrationActionCard
           title="Maxotel Integration"
           description="Connect Maxotel for phone system logs, call routing records, and VoIP/SMS workflow visibility."
           icon={PhoneCall}
-          enabled={Boolean(settings?.integrations?.maxotelEnabled)}
+          {...getActionStatus(maxotelConnected, maxotelAvailable)}
           isProfessional={isProfessional}
-          onEnable={() => updateIntegrationFlag("maxotelEnabled")}
+          onEnable={() => updateIntegrationFlag("maxotelEnabled", maxotelAvailable)}
           onUpgrade={requireProfessional}
         />
         <IntegrationActionCard
           title="Backend SMS Relay"
           description="Route typed customer messages through /api/messaging/send, format numbers to E.164, dispatch via SMS gateway, and log status to Firestore."
           icon={Server}
-          enabled={Boolean(settings?.integrations?.smsRelayEnabled)}
+          {...getActionStatus(smsRelayConnected, smsRelayAvailable)}
           isProfessional={isProfessional}
-          onEnable={() => updateIntegrationFlag("smsRelayEnabled")}
+          onEnable={() => updateIntegrationFlag("smsRelayEnabled", smsRelayAvailable)}
           onUpgrade={requireProfessional}
         />
       </div>
@@ -567,7 +624,9 @@ export function IntegrationsSettings() {
       </div>
 
       {/* Twilio Settings */}
-      <TwilioSettingsForm />
+      <div id="sms-phone-integrations" className="scroll-mt-24">
+        <TwilioSettingsForm expanded={smsConfigOpen} onExpandedChange={setSmsConfigOpen} capabilities={capabilities} />
+      </div>
 
       <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
         <div className="flex items-start gap-4">

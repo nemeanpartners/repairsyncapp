@@ -11,11 +11,23 @@ import { Label } from '@/components/ui/label';
 import { Save, Loader2, LinkIcon, ChevronDown, ChevronUp, Lock, MessageSquare, PhoneCall } from 'lucide-react';
 import { IntegrationsSettings } from '../../../types/settings';
 
-export function TwilioSettingsForm() {
+type TwilioSettingsFormProps = {
+  expanded?: boolean;
+  onExpandedChange?: (expanded: boolean) => void;
+  capabilities?: {
+    managedMobileMessage?: boolean;
+    managedRepairShopr?: boolean;
+    managedMaxotel?: boolean;
+  };
+};
+
+export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }: TwilioSettingsFormProps = {}) {
   const { settings, updateSettings } = useSettings();
   const { profile } = useAuth();
   const navigate = useNavigate();
-  const [isExpanded, setIsExpanded] = useState(false);
+  const [internalExpanded, setInternalExpanded] = useState(false);
+  const isExpanded = expanded ?? internalExpanded;
+  const setIsExpanded = onExpandedChange ?? setInternalExpanded;
   const [isCheckingBalance, setIsCheckingBalance] = useState(false);
   const isProfessional =
     Boolean(profile?.subscriptionActive) &&
@@ -59,6 +71,32 @@ export function TwilioSettingsForm() {
     if (!isProfessional) {
       toast.error('Professional subscription required', {
         description: 'Switch subscriptions in Settings to connect SMS and phone integrations.',
+      });
+      return;
+    }
+    const mobileMessageReady = Boolean(
+      capabilities?.managedMobileMessage || (data.mobileMessageUsername?.trim() && data.mobileMessagePassword?.trim())
+    );
+    const repairShoprReady = Boolean(
+      capabilities?.managedRepairShopr || (data.repairShoprSubdomain?.trim() && data.repairShoprApiKey?.trim())
+    );
+    const maxotelReady = Boolean(capabilities?.managedMaxotel || data.maxotelApiKey?.trim());
+
+    if (data.mobileMessageEnabled && !mobileMessageReady) {
+      toast.error('MobileMessage setup required', {
+        description: 'Enter a MobileMessage username and password before enabling live SMS.',
+      });
+      return;
+    }
+    if (data.smsRelayEnabled && !mobileMessageReady && !repairShoprReady) {
+      toast.error('SMS relay setup required', {
+        description: 'Enter MobileMessage or RepairShopr credentials before enabling the backend SMS relay.',
+      });
+      return;
+    }
+    if (data.maxotelEnabled && !maxotelReady) {
+      toast.error('Maxotel setup required', {
+        description: 'Enter a Maxotel API key before enabling phone logs.',
       });
       return;
     }

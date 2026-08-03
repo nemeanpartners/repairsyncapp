@@ -15,6 +15,31 @@ export type CompanyIntegrationConfig = {
   maxotelPhoneNumber: string;
 };
 
+export function getManagedIntegrationCapabilities() {
+  return {
+    managedMobileMessage: Boolean(process.env.MOBILE_MESSAGE_USERNAME && process.env.MOBILE_MESSAGE_PASSWORD),
+    managedRepairShopr: Boolean(process.env.REPAIRSHOPR_SUBDOMAIN && process.env.REPAIRSHOPR_API_KEY),
+    managedMaxotel: Boolean(process.env.MAXOTEL_API_KEY),
+  };
+}
+
+export function hasUsableMobileMessage(config: Partial<CompanyIntegrationConfig>) {
+  const managed = getManagedIntegrationCapabilities();
+  return Boolean(
+    (asString(config.mobileMessageUsername) && asString(config.mobileMessagePassword)) ||
+      managed.managedMobileMessage,
+  );
+}
+
+export function hasUsableSmsRelay(config: Partial<CompanyIntegrationConfig>) {
+  const managed = getManagedIntegrationCapabilities();
+  return Boolean(
+    hasUsableMobileMessage(config) ||
+      (asString(config.repairShoprSubdomain) && asString(config.repairShoprApiKey)) ||
+      managed.managedRepairShopr,
+  );
+}
+
 export class ProfessionalSubscriptionRequiredError extends Error {
   status = 402;
 
