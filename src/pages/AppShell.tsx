@@ -61,6 +61,7 @@ import { SlaDashboardPage } from "../features/tickets/pages/SlaDashboardPage";
 import { TasksPage } from "./Tasks/TasksPage";
 import { ChecklistsPage } from "./Checklists/ChecklistsPage";
 import { AdminDeletionRequestsPage } from "./Admin/AdminDeletionRequestsPage";
+import { AdminIntegrationRequestsPage } from "./Admin/AdminIntegrationRequestsPage";
 import { BottomNav } from "../components/BottomNav";
 import { useWorkflowStore } from "../store/workflowStore";
 import { PartsOrdersPage } from "./PartsOrdersPage";
@@ -719,6 +720,14 @@ export function AppShell() {
                 element={
                   <AdminRouteGuard>
                     <AdminDeletionRequestsPage />
+                  </AdminRouteGuard>
+                }
+              />
+              <Route
+                path="/admin/integration-requests"
+                element={
+                  <AdminRouteGuard>
+                    <AdminIntegrationRequestsPage />
                   </AdminRouteGuard>
                 }
               />

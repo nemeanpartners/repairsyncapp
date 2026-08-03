@@ -121,6 +121,14 @@ export function PaymentsPage() {
   const [loadingPlan, setLoadingPlan] = useState<SubscriptionPlan | null>(null);
   const [canUseAppleIAP, setCanUseAppleIAP] = useState(false);
   const [legalModal, setLegalModal] = useState<"privacy" | "terms" | null>(null);
+  const currentPlan = profile?.subscriptionPlan || null;
+  const isActiveStarter = Boolean(profile?.subscriptionActive && currentPlan === "starter");
+  const canStartPlan = (plan: SubscriptionPlan) => {
+    if (plan === "enterprise") return true;
+    if (!profile?.subscriptionActive) return true;
+    if (isActiveStarter && plan === "pro") return true;
+    return false;
+  };
 
   const selectedPlan = useMemo<SubscriptionPlan>(() => {
     const requested = searchParams.get("plan");
@@ -463,11 +471,12 @@ export function PaymentsPage() {
             <ShieldCheck className="w-6 h-6 text-emerald-400 shrink-0 mt-0.5" />
             <div>
               <h2 className="text-lg font-bold text-white">
-                Subscription already active
+                {isActiveStarter ? "Starter subscription active" : "Subscription already active"}
               </h2>
               <p className="text-sm text-zinc-300 mt-1">
-                This account already has active access. You can return to the
-                app now.
+                {isActiveStarter
+                  ? "You can upgrade to Professional below to unlock SMS gateway, phone integrations, and advanced workflows."
+                  : "This account already has active access. You can return to the app now."}
               </p>
             </div>
           </div>
@@ -529,9 +538,7 @@ export function PaymentsPage() {
                       setSearchParams({ plan, interval });
                       void startCheckout(plan);
                     }}
-                    disabled={
-                      loadingPlan === plan || !!profile?.subscriptionActive
-                    }
+                    disabled={loadingPlan === plan || !canStartPlan(plan)}
                     className={`w-full rounded-2xl px-4 py-3 text-sm font-black transition-colors flex items-center justify-center gap-2 ${
                       copy.recommended
                         ? "bg-emerald-600 hover:bg-emerald-500 text-white"
@@ -545,7 +552,11 @@ export function PaymentsPage() {
                     ) : (
                       <CreditCard className="w-4 h-4" />
                     )}
-                    {plan === "enterprise"
+                    {plan === "pro" && isActiveStarter
+                      ? canUseAppleIAP
+                        ? "Upgrade with Apple"
+                        : "Upgrade to Professional"
+                      : plan === "enterprise"
                       ? "Contact Sales"
                       : canUseAppleIAP
                         ? "Subscribe with Apple"

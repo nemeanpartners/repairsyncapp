@@ -57,6 +57,12 @@ mobileMessageRouter.post('/api/mobilemessage/send', async (req, res) => {
           String(req.headers['x-user-id'] || ''),
         )
       : undefined;
+    if (integrationConfig && !integrationConfig.mobileMessageEnabled && !integrationConfig.smsRelayEnabled) {
+      return res.status(400).json({
+        error: "Enable MobileMessage Gateway in Settings > Integrations before sending SMS.",
+        integrationRequired: true,
+      });
+    }
     const result = await sendMobileMessage(to, message, ticket_id, custom_ref, customer_id, integrationConfig);
     res.json(result);
   } catch (error: any) {

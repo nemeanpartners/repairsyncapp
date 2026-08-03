@@ -62,6 +62,7 @@ export const IntegrationsSettingsSchema = z.object({
   mobileMessageUsername: z.string().optional(),
   mobileMessagePassword: z.string().optional(),
   mobileMessageSenderId: z.string().optional(),
+  smsRelayEnabled: z.boolean().default(false),
   repairShoprSubdomain: z.string().optional(),
   repairShoprApiKey: z.string().optional(),
   maxotelEnabled: z.boolean().default(false),

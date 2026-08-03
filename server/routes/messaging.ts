@@ -27,6 +27,12 @@ messagingRouter.post('/api/messaging/send', async (req, res) => {
       const companyId = sanitizeCompanyId(String(req.headers['x-company-id'] || ''));
       const userId = String(req.headers['x-user-id'] || '');
       const integrationConfig = await getCompanyIntegrationConfig(db, companyId, userId);
+      if (!integrationConfig.smsRelayEnabled && !integrationConfig.mobileMessageEnabled) {
+        return res.status(400).json({
+          error: "Enable Backend SMS Relay or MobileMessage Gateway in Settings > Integrations before sending SMS through this route.",
+          integrationRequired: true,
+        });
+      }
       const transport = process.env.RCS_PROVIDER_API_KEY ? 'rcs' : 'sms';
       const actualFrom = process.env.RCS_PROVIDER_API_KEY ? "RepairSync Business" : (from || "system");
       

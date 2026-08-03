@@ -73,6 +73,7 @@ export function CommandPalette() {
     { category: "System Navigation", title: "Inspect Parts Stock & Inventory", subtitle: "Monitor stock and triggers", icon: Package, action: () => navigate("/inventory") },
     { category: "System Navigation", title: "Configure Platform Settings", subtitle: "API keys, automated webhooks, team rosters", icon: Settings, action: () => navigate("/settings") },
     { category: "System Navigation", title: "Account Deletion Requests", subtitle: "Admin review for pending account deletion requests", icon: ShieldAlert, action: () => navigate("/admin/account-deletion-requests") },
+    { category: "System Navigation", title: "Integration Requests", subtitle: "Admin review for requested integrations and support follow-ups", icon: Sparkles, action: () => navigate("/admin/integration-requests") },
   ];
 
   // Perform instant lookup

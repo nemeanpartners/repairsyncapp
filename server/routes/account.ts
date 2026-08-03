@@ -359,6 +359,80 @@ accountRouter.post('/api/account/delete-request/cancel', checkAuth, async (req: 
   }
 });
 
+accountRouter.post('/api/integration-requests', checkAuth, async (req: any, res: any) => {
+  try {
+    const db = getDb();
+    const userId = req.user.uid;
+    const companyId = String(req.body.companyId || req.headers['x-company-id'] || '').trim() || 'unknown';
+    const email = String(req.body.email || req.headers['x-user-email'] || '').trim().toLowerCase();
+    const integrationName = String(req.body.integrationName || '').trim();
+    const message = String(req.body.message || '').trim();
+    const requestType = req.body.requestType === 'support' ? 'support' : 'integration';
+
+    if (!integrationName && requestType === 'integration') {
+      return res.status(400).json({ error: 'Tell us which integration you need.' });
+    }
+    if (!message || message.length < 8) {
+      return res.status(400).json({ error: 'Please add a short description.' });
+    }
+
+    const payload = {
+      requestType,
+      integrationName: integrationName || 'Support request',
+      message,
+      status: 'pending',
+      userId,
+      email: email || null,
+      companyId,
+      companyName: req.body.companyName || null,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+
+    const requestRef = await addDoc(collection(db, 'integrationRequests'), payload);
+    await addDoc(collection(db, 'auditLogs'), {
+      action: requestType === 'support' ? 'support_request_created' : 'integration_request_created',
+      actorUserId: userId,
+      tenantId: companyId,
+      timestamp: serverTimestamp(),
+      metadata: { requestId: requestRef.id, integrationName: payload.integrationName },
+    }).catch(() => {});
+
+    res.json({ success: true, id: requestRef.id });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+accountRouter.get('/api/admin/integration-requests', checkAuth, checkAdmin, async (_req: any, res: any) => {
+  try {
+    const db = getDb();
+    const q = query(collection(db, 'integrationRequests'), orderBy('createdAt', 'desc'));
+    const snapshot = await getDocs(q);
+    res.json({ requests: snapshot.docs.map((docSnap) => ({ id: docSnap.id, ...docSnap.data() })) });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+accountRouter.post('/api/admin/integration-requests/:id/status', checkAuth, checkAdmin, async (req: any, res: any) => {
+  try {
+    const db = getDb();
+    const status = ['pending', 'reviewing', 'completed', 'declined'].includes(req.body.status)
+      ? req.body.status
+      : 'reviewing';
+    await updateDoc(doc(db, 'integrationRequests', req.params.id), {
+      status,
+      adminNotes: String(req.body.adminNotes || '').trim(),
+      reviewedBy: req.user.uid,
+      updatedAt: serverTimestamp(),
+    });
+    res.json({ success: true });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 // 3. Admin: View Pending Requests
 accountRouter.get('/api/admin/account-deletion-requests', checkAuth, checkAdmin, async (req: any, res: any) => {
   try {

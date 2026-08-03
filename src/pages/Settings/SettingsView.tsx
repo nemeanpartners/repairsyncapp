@@ -12,6 +12,7 @@ import {
   Workflow,
   MessageSquareDashed,
   Lock,
+  LifeBuoy,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
@@ -28,6 +29,7 @@ import { ChatTemplatesSettingsForm } from "./components/ChatTemplatesSettingsFor
 import { DeviceSettingsForm } from "./components/DeviceSettingsForm";
 import { CatalogSettingsForm } from "./components/CatalogSettingsForm";
 import { SubscriptionSettingsForm } from "./components/SubscriptionSettingsForm";
+import { SupportContactView } from "../SupportContactView";
 import { TeamMembersSettings } from "../../components/TeamMembersSettings"; // existing component
 import { useAuth } from "../../providers/AuthProvider";
 import { CreditCard } from "lucide-react";
@@ -123,6 +125,13 @@ export function SettingsView() {
       adminOnly: false,
     },
     {
+      id: "support",
+      icon: LifeBuoy,
+      label: "Help & Support",
+      desc: "Contact RepairSync support",
+      adminOnly: false,
+    },
+    {
       id: "database",
       icon: Database,
       label: "Data",
@@ -170,6 +179,8 @@ export function SettingsView() {
         return <AiSettingsForm />;
       case "security":
         return <SecuritySettingsForm />;
+      case "support":
+        return <SupportContactView onClose={() => setActiveTab(null)} closeLabel="Back to Settings" />;
       case "database":
         return <DatabaseSettings />;
       default:

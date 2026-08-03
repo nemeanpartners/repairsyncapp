@@ -48,6 +48,7 @@ const DEFAULT_SETTINGS: AppSettings = {
     mobileMessageUsername: '',
     mobileMessagePassword: '',
     mobileMessageSenderId: '',
+    smsRelayEnabled: false,
     repairShoprSubdomain: '',
     repairShoprApiKey: '',
     maxotelEnabled: false,

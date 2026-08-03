@@ -7,6 +7,7 @@ export type CompanyIntegrationConfig = {
   mobileMessageUsername: string;
   mobileMessagePassword: string;
   mobileMessageSenderId: string;
+  smsRelayEnabled: boolean;
   repairShoprSubdomain: string;
   repairShoprApiKey: string;
   maxotelEnabled: boolean;
@@ -64,6 +65,7 @@ export async function getCompanyIntegrationConfig(db: any, companyId: string | n
     mobileMessageUsername: asString(settings.mobileMessageUsername),
     mobileMessagePassword: asString(settings.mobileMessagePassword),
     mobileMessageSenderId: asString(settings.mobileMessageSenderId),
+    smsRelayEnabled: Boolean(settings.smsRelayEnabled),
     repairShoprSubdomain: asString(settings.repairShoprSubdomain),
     repairShoprApiKey: asString(settings.repairShoprApiKey),
     maxotelEnabled: Boolean(settings.maxotelEnabled),

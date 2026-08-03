@@ -14,13 +14,20 @@ import {
   User, 
   ChevronRight,
   Database,
-  HelpCircle
+  HelpCircle,
+  MessageSquare,
+  PhoneCall,
+  Server,
+  Send,
+  Lock
 } from 'lucide-react';
 import axios from 'axios';
 import { toast } from 'sonner';
 import { useSettings } from '../../../providers/SettingsProvider';
+import { useAuth } from '../../../providers/AuthProvider';
 import { db } from '../../../firebase';
 import { collection, query, onSnapshot, limit, doc, updateDoc, deleteDoc, serverTimestamp } from 'firebase/firestore';
+import { useNavigate } from 'react-router-dom';
 
 function XeroSyncQueueMonitor() {
   const [jobs, setJobs] = useState<any[]>([]);
@@ -285,14 +292,89 @@ function XeroSyncQueueMonitor() {
 import { TwilioSettingsForm } from "./TwilioSettingsForm";
 import { companyCollection, companyDoc } from "../../../lib/companyFirestore";
 
+function IntegrationActionCard({
+  title,
+  description,
+  icon: Icon,
+  enabled,
+  isProfessional,
+  onEnable,
+  onUpgrade,
+}: {
+  title: string;
+  description: string;
+  icon: React.ElementType;
+  enabled: boolean;
+  isProfessional: boolean;
+  onEnable: () => void;
+  onUpgrade: () => void;
+}) {
+  return (
+    <div className="bg-white p-5 rounded-2xl border border-zinc-200 shadow-sm">
+      <div className="flex items-start gap-4">
+        <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${enabled ? 'bg-emerald-50 text-emerald-600' : 'bg-zinc-100 text-zinc-500'}`}>
+          <Icon className="w-5 h-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-zinc-900">{title}</h3>
+            {enabled ? (
+              <span className="rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-bold uppercase text-emerald-700">
+                Enabled
+              </span>
+            ) : null}
+          </div>
+          <p className="mt-1 text-sm leading-5 text-zinc-500">{description}</p>
+        </div>
+      </div>
+      <Button
+        className="mt-4 w-full"
+        variant={enabled ? "outline" : "default"}
+        onClick={isProfessional ? onEnable : onUpgrade}
+      >
+        {!isProfessional ? <Lock className="mr-2 h-4 w-4" /> : enabled ? <CheckCircle2 className="mr-2 h-4 w-4" /> : <LinkIcon className="mr-2 h-4 w-4" />}
+        {!isProfessional ? "Switch to Professional" : enabled ? "Connected" : "Connect"}
+      </Button>
+    </div>
+  );
+}
+
 export function IntegrationsSettings() {
   const [zohoStatus, setZohoStatus] = useState<"syncing" | "active" | "inactive">("syncing");
   const [xeroStatus, setXeroStatus] = useState<"syncing" | "active" | "inactive">("syncing");
+  const [requestName, setRequestName] = useState("");
+  const [requestMessage, setRequestMessage] = useState("");
+  const [isSubmittingRequest, setIsSubmittingRequest] = useState(false);
   const { settings, updateSettings } = useSettings();
+  const { profile, user } = useAuth();
+  const navigate = useNavigate();
   
   const rcsEnabled = settings?.integrations?.rcsEnabled || false;
+  const isProfessional =
+    Boolean(profile?.subscriptionActive) &&
+    (profile?.subscriptionPlan === "pro" || profile?.subscriptionPlan === "enterprise");
+
+  const requireProfessional = () => {
+    toast.info("Professional subscription required", {
+      description: "Switch subscriptions in Settings to connect SMS and phone integrations.",
+    });
+    navigate("/payments?plan=pro&interval=monthly");
+  };
+
+  const updateIntegrationFlag = async (key: "mobileMessageEnabled" | "maxotelEnabled" | "smsRelayEnabled") => {
+    if (!isProfessional) {
+      requireProfessional();
+      return;
+    }
+    await updateSettings("integrations", { [key]: true } as any);
+    toast.success("Integration enabled");
+  };
 
   const handleToggleRcs = async () => {
+    if (!isProfessional) {
+      requireProfessional();
+      return;
+    }
     try {
       await updateSettings('integrations', { rcsEnabled: !rcsEnabled });
       toast.success(`RCS Business Messaging ${!rcsEnabled ? 'enabled' : 'disabled'}`);
@@ -329,6 +411,10 @@ export function IntegrationsSettings() {
   }, []);
 
   const handleConnectZoho = async () => {
+    if (!isProfessional) {
+      requireProfessional();
+      return;
+    }
     try {
       const res = await axios.get("/api/auth/zoho/url");
       if (res.data.url) {
@@ -340,6 +426,10 @@ export function IntegrationsSettings() {
   };
 
   const handleConnectXero = async () => {
+    if (!isProfessional) {
+      requireProfessional();
+      return;
+    }
     try {
       const res = await axios.get("/api/auth/xero/url");
       if (res.data.url) {
@@ -350,8 +440,65 @@ export function IntegrationsSettings() {
     }
   };
 
+  const handleSubmitIntegrationRequest = async () => {
+    try {
+      setIsSubmittingRequest(true);
+      const response = await axios.post("/api/integration-requests", {
+        requestType: requestName.trim() ? "integration" : "support",
+        integrationName: requestName.trim() || "Integration request",
+        message: requestMessage,
+        companyId: profile?.companyId,
+        companyName: profile?.companyName,
+        email: user?.email,
+      });
+      if (response.data?.success) {
+        toast.success("Request sent", {
+          description: "RepairSync support will review it from the admin portal.",
+        });
+        setRequestName("");
+        setRequestMessage("");
+      }
+    } catch (error: any) {
+      toast.error("Request failed", {
+        description: error.response?.data?.error || error.message,
+      });
+    } finally {
+      setIsSubmittingRequest(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
+      <div className="grid gap-4">
+        <IntegrationActionCard
+          title="MobileMessage Gateway"
+          description="Send real SMS messages to customer mobile numbers through the MobileMessage API and Australian carrier networks."
+          icon={MessageSquare}
+          enabled={Boolean(settings?.integrations?.mobileMessageEnabled)}
+          isProfessional={isProfessional}
+          onEnable={() => updateIntegrationFlag("mobileMessageEnabled")}
+          onUpgrade={requireProfessional}
+        />
+        <IntegrationActionCard
+          title="Maxotel Integration"
+          description="Connect Maxotel for phone system logs, call routing records, and VoIP/SMS workflow visibility."
+          icon={PhoneCall}
+          enabled={Boolean(settings?.integrations?.maxotelEnabled)}
+          isProfessional={isProfessional}
+          onEnable={() => updateIntegrationFlag("maxotelEnabled")}
+          onUpgrade={requireProfessional}
+        />
+        <IntegrationActionCard
+          title="Backend SMS Relay"
+          description="Route typed customer messages through /api/messaging/send, format numbers to E.164, dispatch via SMS gateway, and log status to Firestore."
+          icon={Server}
+          enabled={Boolean(settings?.integrations?.smsRelayEnabled)}
+          isProfessional={isProfessional}
+          onEnable={() => updateIntegrationFlag("smsRelayEnabled")}
+          onUpgrade={requireProfessional}
+        />
+      </div>
+
       {/* Xero */}
       <div>
         <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -370,7 +517,7 @@ export function IntegrationsSettings() {
             onClick={handleConnectXero}
             disabled={xeroStatus === 'active'}
           >
-            {xeroStatus === 'active' ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Connected</> : 'Connect'}
+            {xeroStatus === 'active' ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Connected</> : isProfessional ? 'Connect' : 'Switch to Professional'}
           </Button>
         </div>
 
@@ -395,7 +542,7 @@ export function IntegrationsSettings() {
           onClick={handleConnectZoho}
           disabled={zohoStatus === 'active'}
         >
-          {zohoStatus === 'active' ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Connected</> : 'Connect'}
+          {zohoStatus === 'active' ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Connected</> : isProfessional ? 'Connect' : 'Switch to Professional'}
         </Button>
       </div>
       
@@ -415,12 +562,46 @@ export function IntegrationsSettings() {
            className={rcsEnabled ? 'border-green-200 text-green-700 hover:bg-green-50' : ''}
            onClick={handleToggleRcs}
         >
-          {rcsEnabled ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Enabled</> : 'Enable RCS'}
+          {rcsEnabled ? <><CheckCircle2 className="w-4 h-4 mr-2" /> Enabled</> : isProfessional ? 'Enable RCS' : 'Switch to Professional'}
         </Button>
       </div>
 
       {/* Twilio Settings */}
       <TwilioSettingsForm />
+
+      <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">
+        <div className="flex items-start gap-4">
+          <div className="w-12 h-12 rounded-xl bg-zinc-100 flex items-center justify-center shrink-0">
+            <Send className="w-5 h-5 text-zinc-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-zinc-900">Do not see the integration you need?</h3>
+            <p className="text-sm text-zinc-500">Request an integration or support follow-up. It will appear in the RepairSync app admin portal.</p>
+          </div>
+        </div>
+        <div className="grid gap-3">
+          <input
+            value={requestName}
+            onChange={(event) => setRequestName(event.target.value)}
+            className="h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm outline-none focus:border-zinc-400"
+            placeholder="Integration name, e.g. MYOB, Shopify, Square"
+          />
+          <textarea
+            value={requestMessage}
+            onChange={(event) => setRequestMessage(event.target.value)}
+            className="min-h-24 rounded-xl border border-zinc-200 bg-white px-3 py-2 text-sm outline-none focus:border-zinc-400"
+            placeholder="Tell us what you need connected and what workflow it should support."
+          />
+          <Button
+            onClick={handleSubmitIntegrationRequest}
+            disabled={isSubmittingRequest || requestMessage.trim().length < 8}
+            className="w-full"
+          >
+            {isSubmittingRequest ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
+            Request Integration Now
+          </Button>
+        </div>
+      </div>
     </div>
   );
 }
