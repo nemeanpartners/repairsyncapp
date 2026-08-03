@@ -10,14 +10,9 @@ import { CheckCircle2, Loader2, ChevronDown, ChevronUp, Lock, MessageSquare, Pho
 type TwilioSettingsFormProps = {
   expanded?: boolean;
   onExpandedChange?: (expanded: boolean) => void;
-  capabilities?: {
-    managedMobileMessage?: boolean;
-    managedRepairShopr?: boolean;
-    managedMaxotel?: boolean;
-  };
 };
 
-export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }: TwilioSettingsFormProps = {}) {
+export function TwilioSettingsForm({ expanded, onExpandedChange }: TwilioSettingsFormProps = {}) {
   const { settings, updateSettings } = useSettings();
   const { profile } = useAuth();
   const navigate = useNavigate();
@@ -29,10 +24,13 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
   const isProfessional =
     Boolean(profile?.subscriptionActive) &&
     (profile?.subscriptionPlan === 'pro' || profile?.subscriptionPlan === 'enterprise');
-  const managedMessagingReady = Boolean(capabilities?.managedMobileMessage || capabilities?.managedRepairShopr);
-  const managedPhoneReady = Boolean(capabilities?.managedMaxotel);
-  const managedMessagingEnabled = Boolean(settings?.integrations?.mobileMessageEnabled && settings?.integrations?.smsRelayEnabled);
-  const managedPhoneEnabled = Boolean(settings?.integrations?.maxotelEnabled);
+  const managedMessagingEnabled = Boolean(
+    settings?.integrations?.managedMessagingEnabled &&
+      settings?.integrations?.managedMessagingAccountId &&
+      settings?.integrations?.mobileMessageEnabled &&
+      settings?.integrations?.smsRelayEnabled
+  );
+  const managedPhoneEnabled = Boolean(settings?.integrations?.managedMaxotelEnabled || settings?.integrations?.maxotelEnabled);
 
   const handleConfigureManaged = async () => {
     if (!isProfessional) {
@@ -41,30 +39,15 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
       });
       return;
     }
-    if (!managedMessagingReady) {
-      toast.error('RepairSync managed SMS is not configured', {
-        description: 'The app is ready for one-click setup, but the server-side MobileMessage credentials must be set in Cloud Run first.',
-      });
-      return;
-    }
     try {
       setIsConfiguring(true);
-      const nextIntegrations = {
-        ...settings?.integrations,
-        mobileMessageEnabled: true,
-        smsRelayEnabled: true,
-        mobileMessageUsername: '',
-        mobileMessagePassword: '',
-        mobileMessageSenderId: 'RepairSync',
-        repairShoprSubdomain: '',
-        repairShoprApiKey: '',
-        managedMessagingEnabled: true,
-        managedMessagingProvider: capabilities?.managedMobileMessage ? 'mobilemessage' : 'repairshopr',
-        managedMessagingConfiguredAt: new Date().toISOString(),
-      };
-      await updateSettings('integrations', nextIntegrations as any);
+      const response = await axios.post('/api/company/provision-messaging', {
+        companyId: profile?.companyId,
+        includePhone: false,
+      });
+      await updateSettings('integrations', response.data.integrations as any);
       toast.success('Managed messaging configured', {
-        description: 'SMS is enabled for this company using RepairSync managed gateway credentials.',
+        description: 'A separate RepairSync messaging account was generated for this company.',
       });
     } finally {
       setIsConfiguring(false);
@@ -78,23 +61,15 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
       });
       return;
     }
-    if (!managedPhoneReady) {
-      toast.error('RepairSync managed Maxotel is not configured', {
-        description: 'The app is ready for one-click setup, but the server-side Maxotel key must be set in Cloud Run first.',
-      });
-      return;
-    }
     try {
       setIsConfiguring(true);
-      await updateSettings('integrations', {
-        maxotelEnabled: true,
-        maxotelApiKey: '',
-        maxotelPhoneNumber: '',
-        managedMaxotelEnabled: true,
-        managedMaxotelConfiguredAt: new Date().toISOString(),
-      } as any);
+      const response = await axios.post('/api/company/provision-messaging', {
+        companyId: profile?.companyId,
+        includePhone: true,
+      });
+      await updateSettings('integrations', response.data.integrations as any);
       toast.success('Managed Maxotel configured', {
-        description: 'Phone logs are enabled for this company using RepairSync managed credentials.',
+        description: 'A separate RepairSync phone integration record was generated for this company.',
       });
     } finally {
       setIsConfiguring(false);
@@ -189,14 +164,9 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
               </div>
               {managedMessagingEnabled ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /> : null}
             </div>
-            {!managedMessagingReady && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <div className="flex gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>RepairSync managed SMS credentials are not set on the server yet. Users do not need API keys.</p>
-                </div>
-              </div>
-            )}
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              <p>Users do not enter provider API keys. RepairSync creates a separate company messaging account and stores all message data under this company.</p>
+            </div>
             <div className="grid gap-2 sm:grid-cols-2">
               <Button type="button" onClick={handleConfigureManaged} disabled={isConfiguring || managedMessagingEnabled}>
                 {isConfiguring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Server className="mr-2 h-4 w-4" />}
@@ -224,14 +194,9 @@ export function TwilioSettingsForm({ expanded, onExpandedChange, capabilities }:
               </div>
               {managedPhoneEnabled ? <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" /> : null}
             </div>
-            {!managedPhoneReady && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
-                <div className="flex gap-2">
-                  <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" />
-                  <p>RepairSync managed Maxotel credentials are not set on the server yet. Users do not need API keys.</p>
-                </div>
-              </div>
-            )}
+            <div className="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm text-blue-950">
+              <p>This creates a company-specific phone integration record. It does not reuse the old RepairSync SMS app credentials.</p>
+            </div>
             <div>
               <Button type="button" onClick={handleConfigureManagedPhone} disabled={isConfiguring || managedPhoneEnabled}>
                 {isConfiguring ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <PhoneCall className="mr-2 h-4 w-4" />}

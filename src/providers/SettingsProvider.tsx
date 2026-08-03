@@ -54,6 +54,13 @@ const DEFAULT_SETTINGS: AppSettings = {
     maxotelEnabled: false,
     maxotelApiKey: '',
     maxotelPhoneNumber: '',
+    managedMessagingEnabled: false,
+    managedMessagingMode: '',
+    managedMessagingProvider: '',
+    managedMessagingAccountId: '',
+    managedMessagingApiKeyLast4: '',
+    managedMaxotelEnabled: false,
+    managedMaxotelMode: '',
   },
   devices: {
     brands: [

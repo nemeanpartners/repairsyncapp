@@ -2,6 +2,7 @@ import { Router } from 'express';
 import { collection, collectionGroup, addDoc, updateDoc, doc, serverTimestamp, getDocs, getDoc, query, orderBy, where, setDoc } from 'firebase/firestore';
 import fs from 'fs';
 import path from 'path';
+import crypto from 'crypto';
 
 export const accountRouter = Router();
 
@@ -61,6 +62,83 @@ function rankInviteCandidates(docs: any[], uid: string, email: string) {
     });
 }
 
+function createCompanyMessagingCredential(companyId: string) {
+  const accountSuffix = crypto.randomBytes(6).toString('hex');
+  const secret = `rsk_live_${crypto.randomBytes(32).toString('base64url')}`;
+  const hash = crypto.createHash('sha256').update(secret).digest('hex');
+  return {
+    accountId: `rsmsg_${companyId.replace(/[^a-zA-Z0-9_-]/g, '_')}_${accountSuffix}`,
+    apiKeyHash: hash,
+    apiKeyLast4: secret.slice(-4),
+  };
+}
+
+async function ensureCompanyMessagingProvision(db: any, companyId: string, actorUid: string, options: { includePhone?: boolean } = {}) {
+  const safeCompanyId = String(companyId || '').trim().replace(/[^a-zA-Z0-9_-]/g, '_') || 'default';
+  const settingsRef = doc(db, 'companies', safeCompanyId, 'settings', 'integrations');
+  const settingsSnap = await getDoc(settingsRef).catch(() => null);
+  const existing = settingsSnap?.exists() ? settingsSnap.data() : {};
+  const credential = existing.managedMessagingApiKeyHash && existing.managedMessagingAccountId
+    ? {
+        accountId: String(existing.managedMessagingAccountId),
+        apiKeyHash: String(existing.managedMessagingApiKeyHash),
+        apiKeyLast4: String(existing.managedMessagingApiKeyLast4 || ''),
+      }
+    : createCompanyMessagingCredential(safeCompanyId);
+
+  const next = {
+    mobileMessageEnabled: true,
+    smsRelayEnabled: true,
+    mobileMessageUsername: '',
+    mobileMessagePassword: '',
+    mobileMessageSenderId: 'RepairSync',
+    repairShoprSubdomain: '',
+    repairShoprApiKey: '',
+    managedMessagingEnabled: true,
+    managedMessagingMode: 'company_generated_account',
+    managedMessagingProvider: 'repairsync_company_messaging',
+    managedMessagingAccountId: credential.accountId,
+    managedMessagingApiKeyHash: credential.apiKeyHash,
+    managedMessagingApiKeyLast4: credential.apiKeyLast4,
+    managedMessagingApiKeyCreatedAt: existing.managedMessagingApiKeyCreatedAt || serverTimestamp(),
+    managedMessagingConfiguredAt: serverTimestamp(),
+    managedMessagingConfiguredBy: actorUid,
+    ...(options.includePhone
+      ? {
+          maxotelEnabled: true,
+          maxotelApiKey: '',
+          maxotelPhoneNumber: '',
+          managedMaxotelEnabled: true,
+          managedMaxotelMode: 'company_generated_account',
+          managedMaxotelConfiguredAt: serverTimestamp(),
+          managedMaxotelConfiguredBy: actorUid,
+        }
+      : {}),
+  };
+
+  await setDoc(settingsRef, next, { merge: true });
+  await addDoc(collection(db, 'companies', safeCompanyId, 'audit_logs'), {
+    action: 'MANAGED_MESSAGING_PROVISIONED',
+    actorUserId: actorUid,
+    accountId: credential.accountId,
+    includePhone: Boolean(options.includePhone),
+    timestamp: serverTimestamp(),
+  }).catch(() => {});
+
+  return {
+    mobileMessageEnabled: true,
+    smsRelayEnabled: true,
+    mobileMessageSenderId: 'RepairSync',
+    maxotelEnabled: Boolean(options.includePhone || existing.maxotelEnabled),
+    managedMessagingEnabled: true,
+    managedMessagingMode: 'company_generated_account',
+    managedMessagingProvider: 'repairsync_company_messaging',
+    managedMessagingAccountId: credential.accountId,
+    managedMessagingApiKeyLast4: credential.apiKeyLast4,
+    managedMaxotelEnabled: Boolean(options.includePhone || existing.managedMaxotelEnabled),
+  };
+}
+
 async function createEmailPasswordUser(email: string, password: string) {
   const firebaseConfig = getFirebaseConfig();
   const response = await fetch(
@@ -84,6 +162,20 @@ async function createEmailPasswordUser(email: string, password: string) {
   }
   return { uid: data.localId as string, alreadyExists: false };
 }
+
+accountRouter.post('/api/company/provision-messaging', checkAuth, checkAdmin, async (req: any, res: any) => {
+  try {
+    const db = getDb();
+    const companyId = String(req.body.companyId || req.headers['x-company-id'] || '').trim();
+    if (!companyId) return res.status(400).json({ error: 'Missing company ID' });
+    const integrations = await ensureCompanyMessagingProvision(db, companyId, req.user.uid, {
+      includePhone: req.body.includePhone === true,
+    });
+    res.json({ success: true, integrations });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Failed to provision company messaging' });
+  }
+});
 
 accountRouter.post('/api/team/invite', checkAuth, checkAdmin, async (req: any, res: any) => {
   try {

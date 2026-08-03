@@ -376,12 +376,20 @@ export function IntegrationsSettings() {
     navigate("/payments?plan=pro&interval=monthly");
   };
 
-  const mobileMessageAvailable = Boolean(capabilities.managedMobileMessage);
-  const maxotelAvailable = Boolean(capabilities.managedMaxotel);
-  const smsRelayAvailable = Boolean(capabilities.managedMobileMessage || capabilities.managedRepairShopr);
-  const mobileMessageConnected = Boolean(settings?.integrations?.mobileMessageEnabled && mobileMessageAvailable);
-  const maxotelConnected = Boolean(settings?.integrations?.maxotelEnabled && maxotelAvailable);
-  const smsRelayConnected = Boolean(settings?.integrations?.smsRelayEnabled && smsRelayAvailable);
+  const mobileMessageAvailable = true;
+  const maxotelAvailable = true;
+  const smsRelayAvailable = true;
+  const mobileMessageConnected = Boolean(
+    settings?.integrations?.managedMessagingEnabled &&
+      settings?.integrations?.managedMessagingAccountId &&
+      settings?.integrations?.mobileMessageEnabled
+  );
+  const maxotelConnected = Boolean(settings?.integrations?.managedMaxotelEnabled || settings?.integrations?.maxotelEnabled);
+  const smsRelayConnected = Boolean(
+    settings?.integrations?.managedMessagingEnabled &&
+      settings?.integrations?.managedMessagingAccountId &&
+      settings?.integrations?.smsRelayEnabled
+  );
 
   const getActionStatus = (enabled: boolean, available: boolean) => {
     if (enabled && available) return { status: "connected" as const, statusText: "Connected" };
@@ -412,26 +420,14 @@ export function IntegrationsSettings() {
       );
       return;
     }
-    await updateSettings("integrations", {
-      [key]: true,
-      ...(key === "mobileMessageEnabled" ? {
-        mobileMessageUsername: "",
-        mobileMessagePassword: "",
-        mobileMessageSenderId: "RepairSync",
-        managedMessagingEnabled: true,
-        managedMessagingProvider: "mobilemessage",
-      } : {}),
-      ...(key === "smsRelayEnabled" ? {
-        repairShoprSubdomain: "",
-        repairShoprApiKey: "",
-        managedSmsRelayEnabled: true,
-      } : {}),
-      ...(key === "maxotelEnabled" ? {
-        maxotelApiKey: "",
-        managedMaxotelEnabled: true,
-      } : {}),
-    } as any);
-    toast.success("Integration connected");
+    const response = await axios.post("/api/company/provision-messaging", {
+      companyId: profile?.companyId,
+      includePhone: key === "maxotelEnabled",
+    });
+    await updateSettings("integrations", response.data.integrations as any);
+    toast.success("Company integration provisioned", {
+      description: "A separate RepairSync account was generated for this company.",
+    });
   };
 
   const handleToggleRcs = async () => {
@@ -636,7 +632,7 @@ export function IntegrationsSettings() {
 
       {/* Twilio Settings */}
       <div id="sms-phone-integrations" className="scroll-mt-24">
-        <TwilioSettingsForm expanded={smsConfigOpen} onExpandedChange={setSmsConfigOpen} capabilities={capabilities} />
+        <TwilioSettingsForm expanded={smsConfigOpen} onExpandedChange={setSmsConfigOpen} />
       </div>
 
       <div className="bg-white p-6 rounded-2xl border border-zinc-200 shadow-sm space-y-4">

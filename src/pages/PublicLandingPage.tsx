@@ -10,6 +10,7 @@ import {
 import { auth, db } from "../firebase";
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
+import axios from "axios";
 import { toast } from "sonner";
 import { 
   Sparkles, 
@@ -1635,6 +1636,19 @@ export function PublicLandingPage({ onLogin, onAppleLogin, onGuestLogin }: Publi
                           updatedAt: serverTimestamp(),
                         }, { merge: true });
                         await setDoc(doc(db, "companies", companyId, "users", credential.user.uid), profile, { merge: true });
+                        await axios.post("/api/company/provision-messaging", {
+                          companyId,
+                          includePhone: true,
+                        }, {
+                          headers: {
+                            "x-user-id": credential.user.uid,
+                            "x-user-email": credential.user.email?.trim().toLowerCase() || authEmail.trim().toLowerCase(),
+                            "x-user-role": "admin",
+                            "x-company-id": companyId,
+                          },
+                        }).catch((error) => {
+                          console.warn("Company messaging provisioning will retry from settings", error);
+                        });
                         toast.success("Account created successfully!");
                         setIsAuthModalOpen(false);
                       } else {

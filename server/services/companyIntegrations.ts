@@ -13,6 +13,10 @@ export type CompanyIntegrationConfig = {
   maxotelEnabled: boolean;
   maxotelApiKey: string;
   maxotelPhoneNumber: string;
+  managedMessagingEnabled: boolean;
+  managedMessagingAccountId: string;
+  managedMessagingProvider: string;
+  managedMaxotelEnabled: boolean;
 };
 
 export function getManagedIntegrationCapabilities() {
@@ -27,6 +31,7 @@ export function hasUsableMobileMessage(config: Partial<CompanyIntegrationConfig>
   const managed = getManagedIntegrationCapabilities();
   return Boolean(
     (asString(config.mobileMessageUsername) && asString(config.mobileMessagePassword)) ||
+      (Boolean(config.managedMessagingEnabled) && asString(config.managedMessagingAccountId)) ||
       managed.managedMobileMessage,
   );
 }
@@ -96,5 +101,9 @@ export async function getCompanyIntegrationConfig(db: any, companyId: string | n
     maxotelEnabled: Boolean(settings.maxotelEnabled),
     maxotelApiKey: asString(settings.maxotelApiKey),
     maxotelPhoneNumber: asString(settings.maxotelPhoneNumber),
+    managedMessagingEnabled: Boolean(settings.managedMessagingEnabled),
+    managedMessagingAccountId: asString(settings.managedMessagingAccountId),
+    managedMessagingProvider: asString(settings.managedMessagingProvider),
+    managedMaxotelEnabled: Boolean(settings.managedMaxotelEnabled),
   };
 }

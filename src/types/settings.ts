@@ -68,6 +68,13 @@ export const IntegrationsSettingsSchema = z.object({
   maxotelEnabled: z.boolean().default(false),
   maxotelApiKey: z.string().optional(),
   maxotelPhoneNumber: z.string().optional(),
+  managedMessagingEnabled: z.boolean().default(false),
+  managedMessagingMode: z.string().optional(),
+  managedMessagingProvider: z.string().optional(),
+  managedMessagingAccountId: z.string().optional(),
+  managedMessagingApiKeyLast4: z.string().optional(),
+  managedMaxotelEnabled: z.boolean().default(false),
+  managedMaxotelMode: z.string().optional(),
 });
 export type IntegrationsSettings = z.infer<typeof IntegrationsSettingsSchema>;
 
